@@ -245,12 +245,11 @@ function handleServerMessage(msg) {
     if (!multiState.remotePlayers[msg.sessionId]) {
       multiState.remotePlayers[msg.sessionId] = { hp: 100, hpMax: 100 };
     }
-    const rp = multiState.remotePlayers[msg.sessionId];
-    rp.x = msg.x;
-    rp.y = msg.y;
-    if (msg.name) rp.name = msg.name;
-    if (msg.location) rp.location = msg.location;
-    // Only re-render panel if location changed or periodically
+    const _rp = multiState.remotePlayers[msg.sessionId];
+    _rp.x = msg.x;
+    _rp.y = msg.y;
+    if (msg.name) _rp.name = msg.name;
+    if (msg.location !== undefined) _rp.location = msg.location;
     updateRemotePlayersPanel();
   }
 
@@ -351,15 +350,13 @@ function handleServerMessage(msg) {
     addLog(`${msg.acceptorName} accepte d'entrer au donjon!`, 'success');
     if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
     state.dungeonAcceptedCount++;
-    const needed = state.dungeonPendingAccepts || (state.group?.members?.length || 1);
-    if (state.dungeonAcceptedCount >= needed) {
+    const _needed = state.dungeonPendingAccepts || Math.max(1, state.group?.members?.length || 1);
+    if (state.dungeonAcceptedCount >= _needed) {
       state.dungeonAcceptedCount = 0;
       state.dungeonPendingAccepts = 0;
-      if (typeof showDungeonReadyUI === 'function') {
-        showDungeonReadyUI(msg.acceptorName);
-      }
+      if (typeof showDungeonReadyUI === 'function') showDungeonReadyUI(msg.acceptorName);
     } else {
-      addLog(`En attente (${state.dungeonAcceptedCount}/${needed} prets)...`, 'normal');
+      addLog(`En attente (${state.dungeonAcceptedCount}/${_needed} prets)...`, 'normal');
     }
   }
 
@@ -473,6 +470,14 @@ function setupBroadcasters() {
   multiState.broadcastHp = () => {
     wsSend('hp_update', { hp: state.hp, hpMax: state.hpMax });
   };
+  // Broadcast location change immediately (dungeon enter/exit)
+  multiState.broadcastLocation = () => {
+    wsSend('move', {
+      x: state.player.gridX,
+      y: state.player.gridY,
+      location: state.player?.location || 'overworld',
+    });
+  };
   updateMultiIndicator();
 }
 
@@ -545,13 +550,11 @@ function updateRemotePlayersPanel() {
     </div>`;
   }).join('');
 
-  // Ajouter event listeners a tous les joueurs
+  // Ajouter event listeners à tous les joueurs
   document.querySelectorAll('.remote-player-card').forEach(card => {
     card.addEventListener('click', (e) => {
       const sessionId = card.getAttribute('data-session-id');
       const playerName = card.getAttribute('data-player-name');
-      // Afficher les stats dans l'inspecteur
-      if (typeof showRemotePlayerStats === 'function') showRemotePlayerStats(sessionId);
       showPlayerContextMenu(sessionId, playerName, e.clientX, e.clientY);
     });
     card.addEventListener('contextmenu', (e) => {

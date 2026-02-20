@@ -274,9 +274,9 @@ function leaveGroup(sessionId, playerName) {
     });
   }
   
-  // Si 0 membres restants, dissoudre le groupe
   if (state.group.members.length <= 0) {
     state.group.members = [];
+    addLog('Le groupe a ete dissous.', 'normal');
   }
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
   addLog(`Vous avez quitte le groupe de ${playerName}`, 'normal');
@@ -330,9 +330,8 @@ function renderGroupPlayers() {
       item.style.background = 'rgba(155, 77, 202, 0.15)';
     };
     
-    item.onclick = (e) => {
-      if (typeof showRemotePlayerStats === 'function') showRemotePlayerStats(memberId);
-      showPlayerContextMenu(memberId, member.name, e.clientX, e.clientY);
+    item.onclick = () => {
+      showPlayerContextMenu(memberId, member.name, event.clientX, event.clientY);
     };
     
     item.oncontextmenu = (e) => {
