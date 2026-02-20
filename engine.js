@@ -1,8 +1,7 @@
 // ═══════════════════════════════════════════════════════
 // GAME STATE
 // ═══════════════════════════════════════════════════════
-// Global dungeon state (populated by dungeon.js)
-var dungeonState = null;
+// Global dungeon state removed — dungeons disabled
 
 let state = {
   selectedClass: null,
@@ -136,6 +135,17 @@ function calcHeal(raw) { return Math.round(raw*(0.9+Math.random()*0.2)); }
 // ENEMY HELPERS
 // ═══════════════════════════════════════════════════════
 function findEnemyAt(gx,gy) { return state.enemies.find(e=>e.alive&&e.gridX===gx&&e.gridY===gy)||null; }
+
+// Trouver un joueur distant à une case donnée
+function findRemotePlayerAt(gx, gy) {
+  if (!window.multiState?.remotePlayers) return null;
+  for (const [sessionId, rp] of Object.entries(window.multiState.remotePlayers)) {
+    if ((rp.x||0) === gx && (rp.y||0) === gy) {
+      return { sessionId, rp };
+    }
+  }
+  return null;
+}
 
 function applyDamageToEnemy(enemy, dmg, fromRemote) {
   if (!enemy.alive) return;
@@ -518,8 +528,6 @@ function updateMovement(timestamp) {
       }
       if (state.selectedClass==='druide') regenResource(1);
       if (state.terrain[`${arrived.x},${arrived.y}`]==='veil') addLog('Case de Voile — +20% dégâts!','action');
-      // Portal check — boss room teleport
-      if (typeof checkPlayerOnPortal === 'function') checkPlayerOnPortal(arrived.x, arrived.y);
       // Follow check — update path toward followed player each step
       if (state.follow?.active && p.path.length === 0) tickFollowPlayer();
 
@@ -915,14 +923,24 @@ function drawGrid() {
       // Règle 2: en donjon → visible seulement si dans le groupe
       if (_inDungeon && !_myGroup.includes(_pid)) continue;
       // Règle 3: en overworld avec groupe → visible seulement si dans le groupe
-      // (si on a un groupe actif, les autres joueurs hors groupe sont invisibles)
       if (!_inDungeon && _myGroup.length > 0 && !_myGroup.includes(_pid)) continue;
       const iso=gridToIso(rp.x||7,rp.y||7);
       const rcx=iso.x, rcy=iso.y+CELL_H/2;
       const rcls = rp.classId ? CLASSES[rp.classId] : null;
-      const rcolor = rcls ? rcls.color : '#00ccff';
+      const isInGroup = _myGroup.includes(_pid);
       const isFollowed = state.follow?.active && state.follow.targetSessionId === _pid;
-      drawEntityAt(rcx,rcy,rcolor,isFollowed ? '◈' : '◇',false,0,1,null);
+      // Couleur : allié (couleur de classe) ou hostile (rouge)
+      const rcolor = isInGroup ? (rcls ? rcls.color : '#00ccff') : '#e04040';
+      const symbol = isInGroup ? (isFollowed ? '◈' : '◇') : '⚔';
+      drawEntityAt(rcx,rcy,rcolor,symbol,false,0,1,null);
+      // Barre de vie pour joueurs hostiles
+      if (!isInGroup && rp.hp !== undefined && rp.hpMax) {
+        const barW=28, barH=3;
+        const pct=Math.max(0,rp.hp/rp.hpMax);
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(rcx-barW/2,rcy-30,barW,barH);
+        ctx.fillStyle=pct>0.5?'#e04040':pct>0.25?'#e07030':'#e03020';
+        ctx.fillRect(rcx-barW/2,rcy-30,barW*pct,barH);
+      }
       ctx.font='8px "Cinzel",serif'; ctx.fillStyle=rcolor; ctx.globalAlpha=0.8; ctx.textAlign='center';
       ctx.fillText(rp.name||'Allié',rcx,rcy-24); ctx.globalAlpha=1;
     }
@@ -1773,9 +1791,6 @@ function gameLoop(timestamp) {
   tickFootprints(dt);
   if (state.opts.vfx) { tickVFX(); tickParticles(dt); }
   drawGrid();
-  if (typeof drawPortal==='function' && !dungeonState?.active) drawPortal(ctx, PORTAL_GX, PORTAL_GY);
-  if (typeof drawBossOnGrid==='function') drawBossOnGrid(ctx);
-  if (typeof drawDungeonRoomUI==='function') drawDungeonRoomUI(ctx);
   if (state.opts.vfx) drawVFX();
   if (state.showStats) refreshStatsPanel();
   if (state.animFrame % 60 === 0 && typeof updateTalentHUD === 'function') updateTalentHUD();

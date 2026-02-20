@@ -350,79 +350,6 @@ function handleServerMessage(msg) {
     addLog(`${msg.leavingName} a quitte le groupe.`, 'normal');
   }
 
-  else if (type === 'dungeon_status') {
-    // Un membre du groupe est dans un donjon — proposer de rejoindre
-    if (msg.fromSessionId !== multiState.sessionId && state.group.members.includes(msg.fromSessionId)) {
-      if (typeof joinDungeonInProgress === 'function') {
-        joinDungeonInProgress(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId, msg.fromGridX, msg.fromGridY);
-      }
-    }
-  }
-
-  else if (type === 'dungeon_request') {
-    if (typeof handleDungeonRequest === 'function') {
-      handleDungeonRequest(msg.fromSessionId, msg.fromName, msg.dungeonType);
-    }
-  }
-
-  else if (type === 'dungeon_accept') {
-    if (typeof registerDungeonAccept === 'function') {
-      registerDungeonAccept(msg.acceptorSessionId, msg.acceptorName);
-    }
-  }
-
-  else if (type === 'dungeon_decline') {
-    if (typeof registerDungeonDecline === 'function') registerDungeonDecline(msg.declineSessionId, msg.declineName);
-  }
-
-  // ─── LOBBY DONJON ─────────────────────────────────────────────
-  else if (type === 'dungeon_lobby_state') {
-    if (typeof handleLobbyStateUpdate === 'function') handleLobbyStateUpdate(msg);
-  }
-  else if (type === 'dungeon_lobby_join') {
-    if (typeof handleLobbyJoin === 'function') handleLobbyJoin(msg);
-  }
-  else if (type === 'dungeon_lobby_ready') {
-    if (typeof handleLobbyStateUpdate === 'function') {
-      handleLobbyStateUpdate({ hostId: msg.hostId, members: DungeonLobby?.members || [], ready: { ...DungeonLobby?.ready, [msg.sessionId]: msg.ready }, pendingRequests: DungeonLobby?.pendingRequests || [] });
-    }
-  }
-  else if (type === 'dungeon_lobby_accept') {
-    if (!DungeonLobby.members.includes(msg.targetId)) {
-      DungeonLobby.members.push(msg.targetId);
-      DungeonLobby.ready[msg.targetId] = false;
-    }
-    if (DungeonLobby.active) {
-      if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
-    } else {
-      showDungeonLobby();
-    }
-    addLog(`${msg.targetName || 'Joueur'} a rejoint le lobby!`, 'success');
-  }
-  else if (type === 'dungeon_lobby_decline') {
-    addLog(`❌ ${msg.targetName || 'Joueur'} a refusé l'invitation`, 'normal');
-  }
-  else if (type === 'dungeon_lobby_kick') {
-    if (msg.targetId === multiState.sessionId) {
-      hideDungeonLobby();
-      DungeonLobby.active = false;
-      addLog('Vous avez été exclu du lobby.', 'normal');
-    } else {
-      const idx = DungeonLobby.members.indexOf(msg.targetId);
-      if (idx > -1) DungeonLobby.members.splice(idx, 1);
-      if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
-    }
-  }
-  else if (type === 'dungeon_lobby_leave') {
-    const idx = DungeonLobby.members.indexOf(msg.sessionId);
-    if (idx > -1) DungeonLobby.members.splice(idx, 1);
-    delete DungeonLobby.ready[msg.sessionId];
-    if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
-  }
-  else if (type === 'dungeon_lobby_start') {
-    if (typeof handleLobbyStart === 'function') handleLobbyStart(msg);
-  }
-
   // ────────────────────────────────────────────────────────────
   else if (type === 'pong') {
     // latence = Date.now() - msg.t
@@ -459,44 +386,6 @@ function handleServerMessage(msg) {
     if (typeof addLog === 'function') addLog(`⚔ ${msg.attackerName} vous attaque! −${dmg} PV`, 'damage');
     if (typeof AudioEngine !== 'undefined') AudioEngine.play.hitReceived?.();
     if (typeof multiState.broadcastHp === 'function') multiState.broadcastHp();
-  }
-
-  // ── DUNGEON_TP_GROUP (TP automatique dans le donjon du groupe) ────
-  else if (type === 'dungeon_tp_group') {
-    // Cas: retour en overworld — rétablir la visibilité
-    if (msg.exitDungeon || msg.zone === 'overworld') {
-      if (dungeonState?.active) {
-        if (typeof exitDungeon === 'function') {
-          addLog(`⚿ ${msg.fromName} a quitté le donjon — retour en overworld.`, 'action');
-          exitDungeon(false);
-        }
-      } else {
-        if (window.multiState?.broadcastLocation) multiState.broadcastLocation();
-        if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
-      }
-      return;
-    }
-
-    // Cas: TP vers une salle de donjon
-    // Si déjà dans le même donjon à la même salle, ignorer (évite boucle)
-    if (dungeonState?.active && dungeonState.zone === msg.zone) return;
-
-    addLog(`⚿ ${msg.fromName} entre dans le donjon — vous êtes téléporté!`, 'action');
-    if (typeof spawnFloater === 'function') spawnFloater(state.player.gridX, state.player.gridY, '⚿ TP DONJON', '#9b4dca', 16);
-
-    // Si déjà dans un donjon mais pas la même salle, reset propre avant de rejoindre
-    if (dungeonState?.active) {
-      if (dungeonState.aiInterval) clearInterval(dungeonState.aiInterval);
-      if (dungeonState.bossTickInterval) clearInterval(dungeonState.bossTickInterval);
-      dungeonState = null;
-    }
-
-    state.dungeonPartyReady = true;
-    if (typeof acceptJoinDungeon === 'function') {
-      acceptJoinDungeon(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId, msg.fromGridX, msg.fromGridY);
-    } else if (typeof enterDungeon === 'function') {
-      enterDungeon();
-    }
   }
 } // end handleServerMessage
 

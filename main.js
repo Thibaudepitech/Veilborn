@@ -184,12 +184,6 @@ function startGame(classId, isNewGame) {
     state.terrain = generateTerrain();
     state.cooldowns = {};
     state.highlight = { type:null, cells:[] };
-    // Reset bossRoom si actif
-    if (typeof bossRoom !== 'undefined') bossRoom = null;
-    if (typeof bossState !== 'undefined') bossState = null;
-    dungeonState = null;
-    const bossHud = document.getElementById('boss-hud');
-    if (bossHud) bossHud.style.display = 'none';
   }
 
   resizeCanvas();
@@ -283,6 +277,16 @@ canvas.addEventListener('mousemove', e=>{
       if (enemy.isDummy) text+=` — ${enemy.name} [Dégâts: ${(enemy.maxHp-enemy.hp).toLocaleString()}]`;
       else text+=` — ${enemy.name} [${enemy.hp}/${enemy.maxHp} PV | ARM:${enemy.armor}]`;
     }
+    // Joueur distant
+    const remoteHover = findRemotePlayerAt(gx, gy);
+    if (remoteHover) {
+      const { sessionId, rp } = remoteHover;
+      const inGroup = state.group?.members?.includes(sessionId);
+      const tag = inGroup ? '◇ Allié' : '⚔ Hostile';
+      const hpInfo = rp.hpMax ? `${rp.hp}/${rp.hpMax} PV` : '? PV';
+      text += ` — ${tag}: ${rp.name || 'Joueur'} [${hpInfo}]`;
+      if (!inGroup && window.multiState?.active) text += ' — Clic pour attaquer';
+    }
     if (state.targeting.active) text = '⊕ CIBLE — '+text;
     tooltip.textContent=text; tooltip.style.display='block';
     tooltip.style.left=(e.clientX-rect.left+12)+'px'; tooltip.style.top=(e.clientY-rect.top-8)+'px';
@@ -318,6 +322,25 @@ canvas.addEventListener('click', e=>{
   if (gx < 0 || gy < 0 || gx >= GRID_SIZE || gy >= GRID_SIZE) return;
 
   // ── ATTAQUE BASIQUE (hors ciblage) ─────────────────
+  // Vérifier d'abord un joueur distant hors-groupe à cette case
+  const remoteAtCell = findRemotePlayerAt(gx, gy);
+  if (remoteAtCell && window.multiState?.active) {
+    const { sessionId, rp } = remoteAtCell;
+    const inGroup = state.group?.members?.includes(sessionId);
+    if (!inGroup) {
+      // Attaque PvP : clic comme sur un ennemi
+      const cls = CLASSES[state.selectedClass];
+      const dist = Math.abs(gx - state.player.gridX) + Math.abs(gy - state.player.gridY);
+      if (dist <= cls.range + 1) {
+        attackPlayerPvP(sessionId, rp.name || 'Joueur');
+        if (typeof AudioEngine !== 'undefined') AudioEngine.play.basicAttack();
+      } else {
+        addLog(`Hors de portée! (${dist} cases, portée: ${cls.range})`, 'normal');
+      }
+      return;
+    }
+  }
+
   const enemy = findEnemyAt(gx, gy);
   if (enemy && enemy.alive) {
     // Afficher l'inspecteur dans tous les cas
@@ -385,24 +408,6 @@ document.addEventListener('keydown', e=>{
     case 'i': case 'I': if(typeof openInventory==='function') openInventory(); break;
     case 'c': case 'C': if(typeof toggleChat==='function') toggleChat(); break;
     case 'm': case 'M': document.getElementById('audio-settings-modal').style.display='flex'; break;
-    case 'f': case 'F':
-      if (dungeonState?.active) {
-        // Quitter le donjon ET TP tout le groupe hors du donjon
-        exitDungeon(false);
-        if (window.multiState?.active && state.group?.members?.length > 0) {
-          wsSend('dungeon_tp_group', {
-            groupMembers: state.group.members,
-            zone: 'overworld',
-            roomId: 0,
-            fromSessionId: window.multiState.sessionId,
-            fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
-            exitDungeon: true,
-          });
-        }
-      } else if (typeof tryFleeBoss === 'function') {
-        tryFleeBoss();
-      }
-      break;
     case 'a': case 'A': if(typeof openTalentTree==='function') openTalentTree(); break;
     case 'g': case 'G': toggleGrid(); break;
     case 't': case 'T': toggleStatsPanel(); break;
