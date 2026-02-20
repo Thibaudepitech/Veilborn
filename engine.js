@@ -171,6 +171,18 @@ function applyDamageToEnemy(enemy, dmg, fromRemote) {
       }
     }
   }
+
+  // Broadcaster les dégâts à tous les joueurs de la même zone
+  if (!fromRemote && window.multiState?.active && multiState.sessionId) {
+    const currentZone = state.player?.location || 'overworld';
+    wsSend('enemy_damage', {
+      enemyId: enemy.id,
+      dmg: dmg,
+      newHp: enemy.hp,
+      zone: currentZone,
+      sessionId: multiState.sessionId,
+    });
+  }
 }
 
 function knockbackEnemy(enemy, dx, dy, distance) {

@@ -673,3 +673,31 @@ function updateRemotePlayersPanel() {
   // Mettre à jour le panneau du groupe
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
 }
+
+// ─── ATTAQUE PVP ─────────────────────────────────────────
+function attackPlayerPvP(targetSessionId, targetName) {
+  if (!multiState.active || !multiState.sessionId) {
+    addLog('Non connecté au multiplayer!', 'normal');
+    return;
+  }
+
+  const targetPlayer = multiState.remotePlayers[targetSessionId];
+  if (!targetPlayer) {
+    addLog('Joueur cible introuvable!', 'normal');
+    return;
+  }
+
+  // Calculer les dégâts basés sur le joueur
+  const baseDmg = 30 + Math.floor(Math.random() * 20);
+  const dmg = calcDamage ? calcDamage(baseDmg, 0) : baseDmg;
+
+  // Envoyer l'attaque au serveur
+  wsSend('pvp_attack', {
+    targetSessionId: targetSessionId,
+    dmg: dmg,
+  });
+
+  // Affichage local
+  spawnFloater(state.player.gridX, state.player.gridY, `⚔ ${dmg} vers ${targetName}`, '#ff4444', 14);
+  addLog(`⚔ Attaque vers ${targetName}! −${dmg} dégâts`, 'action');
+}

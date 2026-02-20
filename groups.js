@@ -205,6 +205,7 @@ function showPlayerContextMenu(sessionId, playerName, mouseX, mouseY) {
     { label: '👥 Inviter au groupe', action: 'inviteToGroup', show: !isInGroup },
     { label: '❌ Quitter le groupe', action: 'leaveGroup', show: isInGroup },
     { label: '🎁 Proposer un trade', action: 'openTradeWith', show: true },
+    { label: '⚔️ Attaquer', action: 'attackPlayer', show: !isInGroup },
     { label: '👤 Suivre', action: 'followPlayer', show: true },
     { label: '🚫 Bloquer', action: 'blockPlayer', show: true },
   ];
@@ -240,6 +241,11 @@ function showPlayerContextMenu(sessionId, playerName, mouseX, mouseY) {
         case 'openTradeWith':
           if (typeof openTradeWith === 'function') {
             openTradeWith(sessionId, playerName);
+          }
+          break;
+        case 'attackPlayer':
+          if (typeof attackPlayerPvP === 'function') {
+            attackPlayerPvP(sessionId, playerName);
           }
           break;
         case 'followPlayer':

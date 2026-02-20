@@ -245,6 +245,8 @@ wss.on('connection', (ws) => {
             fromName: sender?.name || 'Joueur',
             zone: msg.zone,
             roomId: msg.roomId,
+            fromGridX: msg.fromGridX,
+            fromGridY: msg.fromGridY,
             exitDungeon: msg.exitDungeon || false,
           });
         }
@@ -310,6 +312,8 @@ wss.on('connection', (ws) => {
         fromName: sender?.name || msg.fromName || 'Joueur',
         zone: msg.zone,
         roomId: msg.roomId,
+        fromGridX: msg.fromGridX,
+        fromGridY: msg.fromGridY,
       }, ws);
     }
 
