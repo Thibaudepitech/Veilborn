@@ -245,6 +245,7 @@ wss.on('connection', (ws) => {
             fromName: sender?.name || 'Joueur',
             zone: msg.zone,
             roomId: msg.roomId,
+            exitDungeon: msg.exitDungeon || false,
           });
         }
       }

@@ -418,13 +418,11 @@ function handleServerMessage(msg) {
     // Cas: retour en overworld — rétablir la visibilité
     if (msg.exitDungeon || msg.zone === 'overworld') {
       if (dungeonState?.active) {
-        // On est dans un donjon et le chef est sorti — on sort aussi
         if (typeof exitDungeon === 'function') {
           addLog(`⚿ ${msg.fromName} a quitté le donjon — retour en overworld.`, 'action');
           exitDungeon(false);
         }
       } else {
-        // On n'est pas dans un donjon — juste forcer le broadcast de position
         if (window.multiState?.broadcastLocation) multiState.broadcastLocation();
         if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
       }
@@ -432,9 +430,19 @@ function handleServerMessage(msg) {
     }
 
     // Cas: TP vers une salle de donjon
-    if (dungeonState?.active) return; // déjà dans un donjon
+    // Si déjà dans le même donjon à la même salle, ignorer (évite boucle)
+    if (dungeonState?.active && dungeonState.zone === msg.zone) return;
+
     addLog(`⚿ ${msg.fromName} entre dans le donjon — vous êtes téléporté!`, 'action');
     if (typeof spawnFloater === 'function') spawnFloater(state.player.gridX, state.player.gridY, '⚿ TP DONJON', '#9b4dca', 16);
+
+    // Si déjà dans un donjon mais pas la même salle, reset propre avant de rejoindre
+    if (dungeonState?.active) {
+      if (dungeonState.aiInterval) clearInterval(dungeonState.aiInterval);
+      if (dungeonState.bossTickInterval) clearInterval(dungeonState.bossTickInterval);
+      dungeonState = null;
+    }
+
     state.dungeonPartyReady = true;
     if (typeof acceptJoinDungeon === 'function') {
       acceptJoinDungeon(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId);
