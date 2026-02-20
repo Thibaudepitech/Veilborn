@@ -375,6 +375,54 @@ function handleServerMessage(msg) {
     if (typeof registerDungeonDecline === 'function') registerDungeonDecline(msg.declineSessionId, msg.declineName);
   }
 
+  // ─── LOBBY DONJON ─────────────────────────────────────────────
+  else if (type === 'dungeon_lobby_state') {
+    if (typeof handleLobbyStateUpdate === 'function') handleLobbyStateUpdate(msg);
+  }
+  else if (type === 'dungeon_lobby_join') {
+    if (typeof handleLobbyJoin === 'function') handleLobbyJoin(msg);
+  }
+  else if (type === 'dungeon_lobby_ready') {
+    if (typeof handleLobbyStateUpdate === 'function') {
+      handleLobbyStateUpdate({ hostId: msg.hostId, members: DungeonLobby?.members || [], ready: { ...DungeonLobby?.ready, [msg.sessionId]: msg.ready }, pendingRequests: DungeonLobby?.pendingRequests || [] });
+    }
+  }
+  else if (type === 'dungeon_lobby_accept') {
+    if (!DungeonLobby.members.includes(msg.targetId)) {
+      DungeonLobby.members.push(msg.targetId);
+      DungeonLobby.ready[msg.targetId] = false;
+    }
+    if (DungeonLobby.active) {
+      if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
+    } else {
+      showDungeonLobby();
+    }
+    addLog(`${msg.targetName || 'Joueur'} a rejoint le lobby!`, 'success');
+  }
+  else if (type === 'dungeon_lobby_decline') {
+    addLog(`❌ ${msg.targetName || 'Joueur'} a refusé l'invitation`, 'normal');
+  }
+  else if (type === 'dungeon_lobby_kick') {
+    if (msg.targetId === multiState.sessionId) {
+      hideDungeonLobby();
+      DungeonLobby.active = false;
+      addLog('Vous avez été exclu du lobby.', 'normal');
+    } else {
+      const idx = DungeonLobby.members.indexOf(msg.targetId);
+      if (idx > -1) DungeonLobby.members.splice(idx, 1);
+      if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
+    }
+  }
+  else if (type === 'dungeon_lobby_leave') {
+    const idx = DungeonLobby.members.indexOf(msg.sessionId);
+    if (idx > -1) DungeonLobby.members.splice(idx, 1);
+    delete DungeonLobby.ready[msg.sessionId];
+    if (typeof renderDungeonLobbyUI === 'function') renderDungeonLobbyUI();
+  }
+  else if (type === 'dungeon_lobby_start') {
+    if (typeof handleLobbyStart === 'function') handleLobbyStart(msg);
+  }
+
   // ────────────────────────────────────────────────────────────
   else if (type === 'pong') {
     // latence = Date.now() - msg.t

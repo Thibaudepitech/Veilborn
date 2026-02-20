@@ -864,8 +864,12 @@ function checkPlayerOnPortalExtended(gx, gy) {
   if (bossRoom?.active) return;
   if (dungeonState?.active) { checkDungeonTransition(gx, gy); return; }
   if (gx === PORTAL_GX && gy === PORTAL_GY) {
-    addLog('⚿ Vous marchez dans le portail du donjon...', 'action');
-    setTimeout(enterDungeon, 300);
+    if (window.multiState?.active) {
+      showDungeonLobby();
+    } else {
+      addLog('⚿ Vous marchez dans le portail du donjon...', 'action');
+      setTimeout(enterDungeon, 300);
+    }
   }
 }
 

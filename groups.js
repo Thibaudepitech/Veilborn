@@ -447,3 +447,365 @@ function showDungeonReadyUI(acceptorName) {
   // Afficher le nom de celui qui a accepté
   addLog(`⚿ ${acceptorName} est prêt! Cliquez le bouton pour entrer ensemble au donjon!`, 'action');
 }
+
+// ═══════════════════════════════════════════════════════════════
+// SYSTÈME DE LOBBY DONJON
+// ═══════════════════════════════════════════════════════════════
+
+const DungeonLobby = {
+  active: false,
+  hostId: null,
+  members: [],
+  pendingRequests: [],
+  ready: {},
+};
+
+function showDungeonLobby() {
+  if (DungeonLobby.active) return;
+  
+  const myId = window.multiState?.sessionId;
+  const groupMembers = state.group.members || [];
+  const isHost = groupMembers.length === 0 || groupMembers[0] === myId;
+  
+  DungeonLobby.active = true;
+  DungeonLobby.hostId = isHost ? myId : groupMembers[0];
+  DungeonLobby.members = [myId, ...groupMembers].filter(Boolean);
+  DungeonLobby.pendingRequests = [];
+  DungeonLobby.ready = { [myId]: true };
+  
+  renderDungeonLobbyUI();
+  
+  if (!isHost) {
+    wsSend('dungeon_lobby_join', {
+      hostId: DungeonLobby.hostId,
+      sessionId: myId,
+      name: getMyName(),
+    });
+  } else {
+    broadcastDungeonLobbyState();
+  }
+}
+
+function hideDungeonLobby() {
+  DungeonLobby.active = false;
+  const el = document.getElementById('dungeon-lobby');
+  if (el) el.remove();
+}
+
+function renderDungeonLobbyUI() {
+  const existing = document.getElementById('dungeon-lobby');
+  if (existing) existing.remove();
+  
+  const isHost = DungeonLobby.hostId === window.multiState?.sessionId;
+  const myId = window.multiState?.sessionId;
+  
+  const container = document.createElement('div');
+  container.id = 'dungeon-lobby';
+  container.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 500;
+    background: linear-gradient(145deg, rgba(15, 5, 25, 0.98), rgba(8, 2, 15, 0.97));
+    border: 2px solid #9b4dca;
+    border-radius: 12px;
+    padding: 0;
+    min-width: 420px;
+    max-width: 500px;
+    box-shadow: 0 8px 40px rgba(100, 20, 180, 0.6), inset 0 1px 0 rgba(255,255,255,0.05);
+    font-family: 'Cinzel', serif;
+    color: #d4af37;
+  `;
+  
+  let membersHtml = '';
+  DungeonLobby.members.forEach(memberId => {
+    const rp = window.multiState?.remotePlayers?.[memberId];
+    const name = memberId === myId ? getMyName() : (rp?.name || 'Joueur-' + String(memberId).slice(0,4));
+    const isReady = DungeonLobby.ready[memberId];
+    const isLeader = memberId === DungeonLobby.hostId;
+    const canKick = isHost && memberId !== myId;
+    
+    membersHtml += `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(155, 77, 202, 0.1); border: 1px solid rgba(155, 77, 202, 0.2); border-radius: 6px; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 18px;">${isLeader ? '👑' : '👤'}</span>
+          <div>
+            <div style="font-weight: bold; font-size: 13px; color: ${memberId === myId ? '#66ff66' : '#d4af37'};">${name}${memberId === myId ? ' (Vous)' : ''}</div>
+            <div style="font-size: 10px; color: #888;">${isLeader ? 'Créateur du groupe' : 'Membre'}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: ${isReady ? '#66ff66' : '#ff6666'};">
+            ${isReady ? '✓ Prêt' : '⏳ En attente'}
+          </span>
+          ${canKick ? `<button onclick="kickFromLobby('${memberId}')" style="padding: 4px 8px; background: rgba(200, 80, 80, 0.3); border: 1px solid #cc6666; color: #ff9999; border-radius: 4px; cursor: pointer; font-size: 10px;">✕</button>` : ''}
+        </div>
+      </div>
+    `;
+  });
+  
+  let requestsHtml = '';
+  if (isHost && DungeonLobby.pendingRequests.length > 0) {
+    requestsHtml = `
+      <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(155, 77, 202, 0.3);">
+        <div style="font-size: 11px; color: #9b4dca; letter-spacing: 1px; margin-bottom: 10px;">📩 DEMANDES D'INVITATION</div>
+        ${DungeonLobby.pendingRequests.map(req => `
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: rgba(155, 77, 202, 0.08); border: 1px solid rgba(155, 77, 202, 0.2); border-radius: 4px; margin-bottom: 6px;">
+            <span style="font-size: 12px;">${req.name}</span>
+            <div style="display: flex; gap: 6px;">
+              <button onclick="acceptLobbyRequest('${req.sessionId}', '${req.name}')" style="padding: 4px 10px; background: rgba(100, 180, 100, 0.3); border: 1px solid #66cc66; color: #66ff66; border-radius: 4px; cursor: pointer; font-size: 10px;">Accepter</button>
+              <button onclick="declineLobbyRequest('${req.sessionId}')" style="padding: 4px 10px; background: rgba(180, 100, 100, 0.3); border: 1px solid #cc6666; color: #ff9999; border-radius: 4px; cursor: pointer; font-size: 10px;">Refuser</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  const startBtn = isHost ? `
+    <button id="dungeon-lobby-start" onclick="startDungeonFromLobby()" style="
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+      background: linear-gradient(135deg, #9b4dca, #6b2ba8);
+      border: 2px solid #d4af37;
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      box-shadow: 0 4px 12px rgba(155, 77, 202, 0.5);
+      transition: all 0.2s;
+    ">⚔ LANCER LE DONJON ⚔</button>
+  ` : `
+    <button id="dungeon-lobby-ready" onclick="toggleLobbyReady()" style="
+      width: 100%;
+      padding: 14px;
+      margin-top: 16px;
+      background: linear-gradient(135deg, ${DungeonLobby.ready[myId] ? '#27ae60' : '#7f8c8d'}, ${DungeonLobby.ready[myId] ? '#1e8449' : '#5d6d7e'});
+      border: 2px solid ${DungeonLobby.ready[myId] ? '#66ff66' : '#aaa'};
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Cinzel', serif;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      transition: all 0.2s;
+    ">${DungeonLobby.ready[myId] ? '✓ PRÊT' : 'SE METTRE PRÊT'}</button>
+  `;
+  
+  container.innerHTML = `
+    <div style="padding: 18px 20px; border-bottom: 1px solid rgba(155, 77, 202, 0.3); background: linear-gradient(135deg, rgba(155, 77, 202, 0.15), transparent); border-radius: 10px 10px 0 0;">
+      <div style="font-size: 14px; letter-spacing: 2px; color: #9b4dca; margin-bottom: 4px;">⚿ LOBBY DONJON</div>
+      <div style="font-size: 11px; color: #888;">${isHost ? 'En attente de joueurs...' : 'En attente du créateur...'}</div>
+    </div>
+    <div style="padding: 18px 20px;">
+      <div style="font-size: 11px; color: #9b4dca; letter-spacing: 1px; margin-bottom: 10px;">👥 MEMBRES DU GROUPE (${DungeonLobby.members.length})</div>
+      ${membersHtml}
+      ${requestsHtml}
+      ${startBtn}
+      <button onclick="leaveDungeonLobby()" style="
+        width: 100%;
+        padding: 10px;
+        margin-top: 10px;
+        background: transparent;
+        border: 1px solid rgba(200, 100, 100, 0.5);
+        border-radius: 6px;
+        color: #ff9999;
+        font-family: 'Cinzel', serif;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+      ">❌ Quitter le lobby</button>
+    </div>
+  `;
+  
+  document.body.appendChild(container);
+}
+
+function leaveDungeonLobby() {
+  hideDungeonLobby();
+  DungeonLobby.members = [];
+  DungeonLobby.pendingRequests = [];
+  DungeonLobby.ready = {};
+  
+  if (window.multiState?.active) {
+    wsSend('dungeon_lobby_leave', {
+      sessionId: window.multiState.sessionId,
+    });
+  }
+  
+  addLog('Vous quittez le lobby du donjon.', 'normal');
+}
+
+function kickFromLobby(memberId) {
+  if (DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  const idx = DungeonLobby.members.indexOf(memberId);
+  if (idx > -1) {
+    DungeonLobby.members.splice(idx, 1);
+    delete DungeonLobby.ready[memberId];
+  }
+  
+  wsSend('dungeon_lobby_kick', {
+    targetId: memberId,
+    hostId: window.multiState.sessionId,
+  });
+  
+  renderDungeonLobbyUI();
+  broadcastDungeonLobbyState();
+}
+
+function toggleLobbyReady() {
+  const myId = window.multiState?.sessionId;
+  if (!myId) return;
+  
+  DungeonLobby.ready[myId] = !DungeonLobby.ready[myId];
+  
+  wsSend('dungeon_lobby_ready', {
+    sessionId: myId,
+    ready: DungeonLobby.ready[myId],
+    hostId: DungeonLobby.hostId,
+  });
+  
+  renderDungeonLobbyUI();
+}
+
+function acceptLobbyRequest(requestSessionId, requestName) {
+  if (DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  const idx = DungeonLobby.pendingRequests.findIndex(r => r.sessionId === requestSessionId);
+  if (idx > -1) {
+    DungeonLobby.pendingRequests.splice(idx, 1);
+  }
+  
+  if (!DungeonLobby.members.includes(requestSessionId)) {
+    DungeonLobby.members.push(requestSessionId);
+  }
+  DungeonLobby.ready[requestSessionId] = false;
+  
+  wsSend('dungeon_lobby_accept', {
+    targetId: requestSessionId,
+    hostId: window.multiState.sessionId,
+  });
+  
+  renderDungeonLobbyUI();
+  broadcastDungeonLobbyState();
+}
+
+function declineLobbyRequest(requestSessionId) {
+  if (DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  const idx = DungeonLobby.pendingRequests.findIndex(r => r.sessionId === requestSessionId);
+  if (idx > -1) {
+    DungeonLobby.pendingRequests.splice(idx, 1);
+  }
+  
+  wsSend('dungeon_lobby_decline', {
+    targetId: requestSessionId,
+    hostId: window.multiState.sessionId,
+  });
+  
+  renderDungeonLobbyUI();
+}
+
+function startDungeonFromLobby() {
+  if (DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  const readyCount = Object.values(DungeonLobby.ready).filter(Boolean).length;
+  if (readyCount < 1) {
+    addLog('⚠ Vous devez être prêt pour lancer le donjon!', 'normal');
+    return;
+  }
+  
+  hideDungeonLobby();
+  
+  wsSend('dungeon_lobby_start', {
+    hostId: window.multiState.sessionId,
+    members: DungeonLobby.members,
+  });
+  
+  addLog('⚿ Lancement du donjon...', 'action');
+  setTimeout(() => {
+    enterDungeonWithGroup(DungeonLobby.members);
+  }, 500);
+}
+
+function enterDungeonWithGroup(members) {
+  if (typeof enterDungeon === 'function') {
+    enterDungeon();
+  }
+  
+  if (window.multiState?.active) {
+    const myId = window.multiState.sessionId;
+    const myName = getMyName();
+    
+    members.forEach(memberId => {
+      if (memberId !== myId) {
+        wsSend('dungeon_tp_group', {
+          groupMembers: [memberId],
+          zone: 'dungeon_r1',
+          roomId: 1,
+          fromSessionId: myId,
+          fromName: myName,
+          fromGridX: state.player.gridX,
+          fromGridY: state.player.gridY,
+          exitDungeon: false,
+          forceJoin: true,
+        });
+      }
+    });
+  }
+}
+
+function broadcastDungeonLobbyState() {
+  if (!window.multiState?.active || DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  wsSend('dungeon_lobby_state', {
+    hostId: DungeonLobby.hostId,
+    members: DungeonLobby.members,
+    ready: DungeonLobby.ready,
+    pendingRequests: DungeonLobby.pendingRequests,
+  });
+}
+
+function handleLobbyStateUpdate(data) {
+  DungeonLobby.hostId = data.hostId;
+  DungeonLobby.members = data.members;
+  DungeonLobby.ready = data.ready || {};
+  DungeonLobby.pendingRequests = data.pendingRequests || [];
+  
+  if (DungeonLobby.active) {
+    renderDungeonLobbyUI();
+  }
+}
+
+function handleLobbyJoin(data) {
+  if (DungeonLobby.hostId !== window.multiState?.sessionId) return;
+  
+  if (!DungeonLobby.pendingRequests.find(r => r.sessionId === data.sessionId)) {
+    DungeonLobby.pendingRequests.push({
+      sessionId: data.sessionId,
+      name: data.name,
+    });
+  }
+  
+  renderDungeonLobbyUI();
+  broadcastDungeonLobbyState();
+}
+
+function handleLobbyStart(data) {
+  hideDungeonLobby();
+  
+  DungeonLobby.members = data.members || [];
+  DungeonLobby.ready = {};
+  
+  addLog('⚿ Le donjon est lancé!', 'action');
+  setTimeout(() => {
+    if (typeof enterDungeon === 'function') enterDungeon();
+  }, 500);
+}
