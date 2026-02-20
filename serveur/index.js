@@ -314,8 +314,8 @@ wss.on('connection', (ws) => {
       for (const [targetWs, targetData] of room.players) {
         if (targetData.sessionId === msg.targetId) {
           send(targetWs, 'trade_request', {
-            fromSessionId: ws.sessionId,
-            fromName: requester?.name || 'Joueur',
+            sessionId: ws.sessionId,
+            name: requester?.name || 'Joueur',
             targetId: msg.targetId,
           });
           return;
@@ -347,7 +347,7 @@ wss.on('connection', (ws) => {
       for (const [targetWs, targetData] of room.players) {
         if (targetData.sessionId === msg.targetId) {
           send(targetWs, 'trade_decline', {
-            fromSessionId: ws.sessionId,
+            sessionId: ws.sessionId,
             targetId: msg.targetId,
           });
           return;
