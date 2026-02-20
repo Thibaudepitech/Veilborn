@@ -1,0 +1,65 @@
+appId: com.veilborn.app
+productName: Veilborn
+artifactName: "${productName}-${version}-${arch}.${ext}"
+
+directories:
+  buildResources: public
+  output: dist
+  buildResources: public
+
+files:
+  - from: "."
+    to: "."
+    filter:
+      - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme,*.map,*.map.js,license,License,LICENSE,*.d.ts.map,.eslintignore,.eslintrc,.eslintrc.js,rollup.config.js,.babelrc,.flowconfig,.prettierignore,.bundle,**/*.flow}"
+      - "!**/*.{iml,hpux,orig,swp,tmp,temp}"
+  - from: "public"
+    to: "resources/app/public"
+  - from: "src"
+    to: "resources/app/src"
+  - from: "serveur"
+    to: "resources/app/serveur"
+  - from: "LICENSE"
+    to: "resources/app/LICENSE"
+
+win:
+  target:
+    - nsis
+    - portable
+  icon: public/favicon.ico
+  certificateFile: null
+  certificatePassword: null
+  signingHashAlgorithms:
+    - sha256
+
+portable:
+  artifactName: "${productName}-${version}-portable.${ext}"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Veilborn
+  installerIcon: public/favicon.ico
+  uninstallerIcon: public/favicon.ico
+  installerHeaderIcon: public/favicon.ico
+
+linux:
+  target:
+    - AppImage
+    - deb
+  icon: public/favicon.ico
+  category: Game
+
+appImage:
+  artifactName: "${productName}-${version}-${arch}.${ext}"
+
+deb:
+  depends:
+    - libappindicator1
+    - libnotify-bin
+    - xdg-utils
+  category: Game
+
+category: Game

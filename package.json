@@ -1,0 +1,86 @@
+{
+  "name": "veilborn-desktop",
+  "version": "1.0.0",
+  "description": "Veilborn - RPG Multijoueur Desktop",
+  "main": "src/main.js",
+  "homepage": "./",
+  "author": "Thibaud",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.0",
+    "concurrently": "^8.2.0",
+    "nodemon": "^3.0.2"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "concurrently \"electron-squirrel-startup\" \"npm --prefix serveur run dev\" \"electron .\" || true",
+    "build": "npm run dist",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl",
+    "dist": "npm run build",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.veilborn.app",
+    "productName": "Veilborn",
+    "directories": {
+      "buildResources": "public",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "public/**/*",
+      "serveur/**/*",
+      "package.json",
+      "LICENSE"
+    ],
+    "extraMetadata": {
+      "main": "src/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "public/favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Veilborn"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/favicon.ico",
+      "category": "Game"
+    },
+    "deb": {
+      "depends": [
+        "libappindicator1",
+        "libnotify-bin"
+      ]
+    }
+  }
+}
