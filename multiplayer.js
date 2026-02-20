@@ -245,19 +245,22 @@ function handleServerMessage(msg) {
     if (!multiState.remotePlayers[msg.sessionId]) {
       multiState.remotePlayers[msg.sessionId] = { hp: 100, hpMax: 100 };
     }
-    const _rp = multiState.remotePlayers[msg.sessionId];
-    _rp.x = msg.x;
-    _rp.y = msg.y;
-    if (msg.name) _rp.name = msg.name;
-    if (msg.location !== undefined) _rp.location = msg.location;
+    const _rmv = multiState.remotePlayers[msg.sessionId];
+    _rmv.x = msg.x;
+    _rmv.y = msg.y;
+    if (msg.name) _rmv.name = msg.name;
+    if (msg.location !== undefined) _rmv.location = msg.location;
     updateRemotePlayersPanel();
   }
 
   else if (type === 'hp_update') {
     if (msg.sessionId === multiState.sessionId) return;
     if (multiState.remotePlayers[msg.sessionId]) {
-      multiState.remotePlayers[msg.sessionId].hp = msg.hp;
-      multiState.remotePlayers[msg.sessionId].hpMax = msg.hpMax;
+      const _rhp = multiState.remotePlayers[msg.sessionId];
+      _rhp.hp = msg.hp;
+      _rhp.hpMax = msg.hpMax;
+      if (msg.talentBonuses) _rhp.talentBonuses = msg.talentBonuses;
+      if (msg.talentLevel) _rhp.talentLevel = msg.talentLevel;
       updateRemotePlayersPanel();
     }
   }
@@ -332,6 +335,7 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'group_accept') {
+    // Ajouter l'accepteur au groupe du demandeur
     if (!state.group.members.includes(msg.acceptorSessionId)) {
       state.group.members.push(msg.acceptorSessionId);
     }
@@ -347,16 +351,14 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_accept') {
-    addLog(`${msg.acceptorName} accepte d'entrer au donjon!`, 'success');
     if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
     state.dungeonAcceptedCount++;
     const _needed = state.dungeonPendingAccepts || Math.max(1, state.group?.members?.length || 1);
+    addLog(`${msg.acceptorName} accepte! (${state.dungeonAcceptedCount}/${_needed})`, 'success');
     if (state.dungeonAcceptedCount >= _needed) {
       state.dungeonAcceptedCount = 0;
       state.dungeonPendingAccepts = 0;
       if (typeof showDungeonReadyUI === 'function') showDungeonReadyUI(msg.acceptorName);
-    } else {
-      addLog(`En attente (${state.dungeonAcceptedCount}/${_needed} prets)...`, 'normal');
     }
   }
 
@@ -468,9 +470,13 @@ function setupBroadcasters() {
     wsSend('heal', { amount });
   };
   multiState.broadcastHp = () => {
-    wsSend('hp_update', { hp: state.hp, hpMax: state.hpMax });
+    wsSend('hp_update', {
+      hp: state.hp,
+      hpMax: state.hpMax,
+      talentBonuses: state.talentBonuses || null,
+      talentLevel: state.talents ? state.talents.level : 1,
+    });
   };
-  // Broadcast location change immediately (dungeon enter/exit)
   multiState.broadcastLocation = () => {
     wsSend('move', {
       x: state.player.gridX,
@@ -545,8 +551,8 @@ function updateRemotePlayersPanel() {
     const hpPct = rp.hpMax ? Math.round((rp.hp / rp.hpMax) * 100) : 100;
     return `<div class="remote-player-card" data-session-id="${sessionId}" data-player-name="${rp.name || 'Allié'}" style="border-color:${rcls ? rcls.color+'44' : '#304050'}; cursor: pointer;">
       <div class="remote-player-name" style="color:${rcls ? rcls.color : '#80c0ff'};">◇ ${rp.name || 'Allié'}</div>
-      <div class="remote-player-class">${rcls ? rcls.name : '—'}</div>
-      <div class="remote-player-hp">PV: ${hpPct}% · (${rp.x||0},${rp.y||0})</div>
+      <div class="remote-player-class">${rcls ? rcls.name : '—'} ${rp.talentLevel > 1 ? '<span style="color:#c8a96e;font-size:9px;">Niv.' + rp.talentLevel + '</span>' : ''}</div>
+      <div class="remote-player-hp">PV: ${hpPct}%</div>
     </div>`;
   }).join('');
 

@@ -159,6 +159,8 @@ wss.on('connection', (ws) => {
       broadcast(room, 'hp_update', {
         sessionId: ws.sessionId,
         hp: msg.hp, hpMax: msg.hpMax,
+        talentBonuses: msg.talentBonuses || null,
+        talentLevel: msg.talentLevel || 1,
       }, ws);
     }
 

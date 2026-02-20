@@ -276,7 +276,7 @@ function leaveGroup(sessionId, playerName) {
   
   if (state.group.members.length <= 0) {
     state.group.members = [];
-    addLog('Le groupe a ete dissous.', 'normal');
+    addLog('Le groupe est dissous.', 'normal');
   }
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
   addLog(`Vous avez quitte le groupe de ${playerName}`, 'normal');
@@ -381,9 +381,7 @@ function showDungeonReadyUI(acceptorName) {
     btn.onclick = () => {
       btn.remove();
       state.dungeonPartyReady = true;
-      if (typeof enterDungeon === 'function') {
-        enterDungeon();
-      }
+      if (typeof enterDungeon === 'function') enterDungeon();
     };
     document.body.appendChild(btn);
   }

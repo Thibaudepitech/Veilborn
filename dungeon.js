@@ -173,22 +173,28 @@ function enterDungeon() {
   if (dungeonState?.active) return;
   if (bossRoom?.active) return;
 
-  // En groupe sans flag ready => envoyer invitations et attendre
+  // En groupe: demander accord de tous les membres
   if (window.multiState?.active && state.group?.members.length > 0 && !state.dungeonPartyReady) {
-    const groupMemberIds = state.group.members;
-    state.dungeonPendingAccepts = groupMemberIds.length;
+    const _groupIds = state.group.members.slice();
+    state.dungeonPendingAccepts = _groupIds.length;
     state.dungeonAcceptedCount = 0;
 
-    groupMemberIds.forEach(memberId => {
-      // Envoyer la requete meme si le nom est inconnu (fallback)
+    _groupIds.forEach(memberId => {
       const member = window.multiState.remotePlayers[memberId];
-      const memberName = member ? member.name : ('Joueur-' + memberId.slice(0,4));
-      requestDungeonAccess(memberId, memberName, 'DONJON');
+      const name = member ? member.name : ('Joueur-' + String(memberId).slice(0, 4));
+      wsSend('dungeon_request', {
+        fromSessionId: window.multiState.sessionId,
+        fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+        targetSessionId: memberId,
+        targetName: name,
+        dungeonType: 'DONJON',
+      });
     });
 
-    addLog("En attente de l\'accord du groupe...", "normal");
+    addLog("Demande envoyee au groupe...", "normal");
     return;
   }
+  // Reinitialiser le flag apres utilisation
   state.dungeonPartyReady = false;
 
   addLog('⚿ Le portail vous aspire dans les profondeurs du donjon...', 'action');
@@ -196,7 +202,6 @@ function enterDungeon() {
 
   // Marquer le joueur comme étant dans le donjon
   state.player.location = 'dungeon';
-  // Informer les autres joueurs du changement de zone
   if (window.multiState?.broadcastLocation) window.multiState.broadcastLocation();
 
   dungeonState = {
