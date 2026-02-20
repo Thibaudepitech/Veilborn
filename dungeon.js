@@ -79,18 +79,24 @@ function getDungeonScaling(roomId) {
 function spawnRoomEnemies(roomId, sc) {
   const defs = {
     1: [
-      { type:'fracture', name:'Fracturé sauvage',  hp:180, armor:12, positions:[[3,4],[5,6],[9,4],[11,6]] },
-      { type:'revenant', name:'Éclat vivant',       hp:120, armor:8,  positions:[[7,5]] },
+      // Patrouilleurs rapides, longue détection
+      { type:'fracture', name:'Fracturé sauvage',  hp:180, armor:12, dmg:22, detect:7, speed:750,  positions:[[3,4],[5,6],[9,4],[11,6],[2,8],[13,8]] },
+      // Sentinelles résistantes
+      { type:'revenant', name:'Éclat vivant',       hp:220, armor:18, dmg:28, detect:6, speed:1100, positions:[[7,5],[7,9],[4,3],[11,3]] },
+      // Rôdeurs agressifs
+      { type:'gloom',    name:'Larve du Voile',     hp:100, armor:6,  dmg:18, detect:8, speed:600,  positions:[[5,11],[9,11],[3,7],[12,7]] },
     ],
     2: [
-      { type:'gloom',    name:'Revenant boisé',     hp:250, armor:18, positions:[[3,4],[5,4],[9,4],[11,4]] },
-      { type:'fracture', name:'Gardien de crypte',  hp:300, armor:22, positions:[[7,3]] },
-      { type:'revenant', name:'Spectre ancien',     hp:150, armor:10, positions:[[4,7],[10,7]] },
+      { type:'gloom',    name:'Revenant boisé',     hp:260, armor:18, dmg:32, detect:7, speed:900,  positions:[[3,4],[5,4],[9,4],[11,4],[2,6],[13,6]] },
+      { type:'fracture', name:'Gardien de crypte',  hp:340, armor:25, dmg:38, detect:6, speed:1200, positions:[[7,3],[4,9],[10,9]] },
+      { type:'revenant', name:'Spectre ancien',     hp:180, armor:12, dmg:25, detect:9, speed:700,  positions:[[4,7],[10,7],[7,12],[3,11],[12,11]] },
+      { type:'gloom',    name:'Ombre rampante',     hp:130, armor:8,  dmg:20, detect:8, speed:550,  positions:[[6,5],[9,5],[5,8],[10,8]] },
     ],
     3: [
-      { type:'arcane',   name:'Construct forgé',    hp:320, armor:28, positions:[[4,4],[8,4],[11,4]] },
-      { type:'fracture', name:'Gardien de forge',   hp:280, armor:20, positions:[[6,6],[10,6]] },
-      { type:'arcane',   name:'Sentinelle de Voile',hp:200, armor:25, positions:[[3,8],[12,8]] },
+      { type:'arcane',   name:'Construct forgé',    hp:350, armor:30, dmg:42, detect:6, speed:1300, positions:[[4,4],[8,4],[11,4],[4,10],[11,10]] },
+      { type:'fracture', name:'Gardien de forge',   hp:300, armor:22, dmg:35, detect:7, speed:950,  positions:[[6,6],[10,6],[3,8],[12,8]] },
+      { type:'arcane',   name:'Sentinelle de Voile',hp:240, armor:28, dmg:30, detect:8, speed:850,  positions:[[3,3],[13,3],[3,12],[13,12]] },
+      { type:'revenant', name:'Forgeâme',           hp:160, armor:14, dmg:24, detect:9, speed:600,  positions:[[7,7],[5,10],[9,10],[6,3],[9,3]] },
     ],
   };
   const groups = defs[roomId] || [];
@@ -106,10 +112,15 @@ function spawnRoomEnemies(roomId, sc) {
         armor: g.armor + sc.armorBonus,
         type: g.type, alive: true, name: g.name,
         debuffs: {}, isDungeonEnemy: true,
-        _aiTimer: Date.now() + 1000 + Math.random() * 1000,
-        _aiRange: 5,
-        _dmgBase:  Math.round(25 * sc.dmgMult),
-        _dmgRange: Math.round(15 * sc.dmgMult),
+        _aiTimer: Date.now() + 600 + Math.random() * 1000,
+        _aiRange: g.detect || 7,
+        _speed:   g.speed  || 900,
+        _dmgBase:  Math.round((g.dmg || 25) * sc.dmgMult),
+        _dmgRange: Math.round(12 * sc.dmgMult),
+        _homeX: gx, _homeY: gy,
+        _state: 'patrol',
+        _patrolTimer: Date.now() + 2000 + Math.random() * 3000,
+        _patrolTargetX: gx, _patrolTargetY: gy,
       });
     });
   });
@@ -247,18 +258,6 @@ function enterDungeonRoom(roomId) {
 
   // Broadcast aux membres du groupe qu'on est dans cette salle
   broadcastDungeonStatus(roomCfg.zone, roomId);
-
-  // ── TP AUTOMATIQUE DES MEMBRES DU GROUPE ───────────────────────
-  // Si on est dans un groupe, téléporter tous les membres automatiquement
-  if (window.multiState?.active && state.group?.members?.length > 0) {
-    wsSend('dungeon_tp_group', {
-      groupMembers: state.group.members,
-      zone: roomCfg.zone,
-      roomId,
-      fromSessionId: window.multiState.sessionId,
-      fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
-    });
-  }
 }
 
 // ─── SALLE BOSS ──────────────────────────────────────────────────
@@ -282,17 +281,6 @@ function enterDungeonBossRoom() {
   spawnDungeonBoss();
   showDungeonBossUI();
   broadcastDungeonStatus(DUNGEON_ZONES.boss, 4);
-
-  // ── TP AUTOMATIQUE DES MEMBRES DU GROUPE (salle boss) ─────────
-  if (window.multiState?.active && state.group?.members?.length > 0) {
-    wsSend('dungeon_tp_group', {
-      groupMembers: state.group.members,
-      zone: DUNGEON_ZONES.boss,
-      roomId: 4,
-      fromSessionId: window.multiState.sessionId,
-      fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
-    });
-  }
 }
 
 // ─── BOSS SPAWN ──────────────────────────────────────────────────
@@ -354,7 +342,52 @@ function spawnDungeonBossAdds(playerCount) {
   addLog(`⚠ ${positions.length} Fragments du Voile invoqués!`, 'normal');
 }
 
-// ─── IA ENNEMIS ──────────────────────────────────────────────────
+// ─── PATHFINDING ENNEMI (A* simplifié) ──────────────────────────
+function enemyPathStep(enemy, tx, ty) {
+  // Essaie de se rapprocher de (tx,ty) en évitant les obstacles et autres ennemis
+  const ex = enemy.gridX, ey = enemy.gridY;
+  if (ex === tx && ey === ty) return false;
+
+  // Génère les 4 directions avec heuristique Manhattan
+  const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+  dirs.sort((a,b) =>
+    (Math.abs(ex+a[0]-tx)+Math.abs(ey+a[1]-ty)) -
+    (Math.abs(ex+b[0]-tx)+Math.abs(ey+b[1]-ty))
+  );
+
+  // Ajouter un peu d'aléatoire pour éviter le blocage parfait
+  if (Math.random() < 0.15) {
+    const r = Math.floor(Math.random()*dirs.length);
+    [dirs[0], dirs[r]] = [dirs[r], dirs[0]];
+  }
+
+  for (const [dx,dy] of dirs) {
+    const nx = ex+dx, ny = ey+dy;
+    if (nx<1||ny<1||nx>14||ny>14) continue;
+    if (state.terrain[`${nx},${ny}`]==='blocked') continue;
+    if (state.enemies.some(e=>e.alive&&e!==enemy&&e.gridX===nx&&e.gridY===ny)) continue;
+    if (nx===state.player.gridX&&ny===state.player.gridY) continue;
+    enemy.gridX=nx; enemy.gridY=ny;
+    return true;
+  }
+  return false;
+}
+
+// ─── ALERTE DES ALLIÉS PROCHES ──────────────────────────────────
+function alertNearbyEnemies(alerter, px, py) {
+  const alertDist = 5;
+  state.enemies.forEach(e => {
+    if (!e.alive||!e.isDungeonEnemy||e.isBoss||e===alerter) return;
+    const d = Math.abs(e.gridX-alerter.gridX)+Math.abs(e.gridY-alerter.gridY);
+    if (d <= alertDist && e._state === 'patrol') {
+      e._state = 'chase';
+      // Rendre l'ennemi alerté plus réactif
+      e._aiTimer = Math.min(e._aiTimer||0, Date.now() + 200);
+    }
+  });
+}
+
+// ─── IA ENNEMIS PRINCIPALE ──────────────────────────────────────
 function tickDungeonAI() {
   if (!dungeonState?.active) return;
   if (state.showSkillTree || state.showTalentTree) return;
@@ -364,34 +397,61 @@ function tickDungeonAI() {
   state.enemies.forEach(enemy => {
     if (!enemy.alive || !enemy.isDungeonEnemy || enemy.isBoss) return;
     if (!enemy._aiTimer || now < enemy._aiTimer) return;
-    enemy._aiTimer = now + 800 + Math.random() * 400;
+
+    const speed = enemy._speed || 900;
+    enemy._aiTimer = now + speed * (0.85 + Math.random() * 0.3);
     const dist = Math.abs(enemy.gridX - px) + Math.abs(enemy.gridY - py);
 
+    // ── ATTAQUE CORPS À CORPS ──────────────────────────────────
     if (dist <= 1) {
+      if (enemy._state !== 'chase') {
+        enemy._state = 'chase';
+        alertNearbyEnemies(enemy, px, py);
+      }
       const dmg = enemy._dmgBase + Math.floor(Math.random() * enemy._dmgRange);
       const reduced = calcDamage(dmg, state.armor);
       state.hp = Math.max(1, state.hp - reduced);
       updateHpUI();
       spawnFloater(px, py, `-${reduced}`, '#e74c3c', 13);
-      addLog(`${enemy.name} → vous attaque! −${reduced} PV`, 'normal');
+      if (reduced > 35) addLog(`${enemy.name} vous frappe violemment! −${reduced} PV`, 'damage');
       if (window.multiState?.broadcastHp) multiState.broadcastHp();
       return;
     }
 
+    // ── DÉTECTION DU JOUEUR ────────────────────────────────────
     if (dist <= enemy._aiRange) {
-      const dx = Math.sign(px - enemy.gridX);
-      const dy = Math.sign(py - enemy.gridY);
-      const moves = [];
-      if (dx !== 0) moves.push([dx, 0]);
-      if (dy !== 0) moves.push([0, dy]);
-      moves.sort(() => Math.random() - 0.5);
-      for (const [mx, my] of moves) {
-        const nx = enemy.gridX + mx, ny = enemy.gridY + my;
-        if (nx < 0 || ny < 0 || nx >= GRID_SIZE || ny >= GRID_SIZE) continue;
-        if (state.terrain[`${nx},${ny}`] === 'blocked') continue;
-        if (state.enemies.some(e => e.alive && e !== enemy && e.gridX === nx && e.gridY === ny)) continue;
-        if (nx === px && ny === py) continue;
-        enemy.gridX = nx; enemy.gridY = ny; break;
+      if (enemy._state !== 'chase') {
+        enemy._state = 'chase';
+        // Alerter les alliés proches — ils accourent aussi
+        alertNearbyEnemies(enemy, px, py);
+        if (dist <= 5) spawnFloater(enemy.gridX, enemy.gridY, '!', '#ff4444', 12);
+      }
+      // Foncer sur le joueur via A*
+      enemyPathStep(enemy, px, py);
+      return;
+    }
+
+    // ── PATROUILLE ────────────────────────────────────────────
+    if (enemy._state === 'patrol') {
+      if (now > (enemy._patrolTimer||0)) {
+        // Nouveau point de patrouille aléatoire autour de la position d'origine
+        const ox = enemy._homeX||enemy.gridX, oy = enemy._homeY||enemy.gridY;
+        const radius = 3;
+        enemy._patrolTargetX = Math.max(1, Math.min(14, ox + Math.floor(Math.random()*radius*2+1)-radius));
+        enemy._patrolTargetY = Math.max(1, Math.min(14, oy + Math.floor(Math.random()*radius*2+1)-radius));
+        enemy._patrolTimer = now + 2500 + Math.random() * 3000;
+      }
+      // Se déplacer vers le point de patrouille
+      const pdist = Math.abs(enemy.gridX-enemy._patrolTargetX)+Math.abs(enemy.gridY-enemy._patrolTargetY);
+      if (pdist > 0) enemyPathStep(enemy, enemy._patrolTargetX, enemy._patrolTargetY);
+    } else if (enemy._state === 'chase') {
+      // Chase mais hors de portée — retour à la patrouille si trop loin de la base
+      const homeDist = Math.abs(enemy.gridX-(enemy._homeX||0))+Math.abs(enemy.gridY-(enemy._homeY||0));
+      if (homeDist > 10) {
+        enemy._state = 'patrol';
+      } else {
+        // Continuer à chercher — se déplacer vers dernière position connue du joueur
+        enemyPathStep(enemy, px, py);
       }
     }
   });
@@ -569,6 +629,19 @@ function exitDungeon(victory) {
 
   state.player.location = 'overworld';
   if (window.multiState?.broadcastLocation) window.multiState.broadcastLocation();
+
+  // ── NOTIFIER LES MEMBRES DU GROUPE QU'ON EST DE RETOUR EN OVERWORLD ──
+  // Cela force la re-visibilité mutuelle entre membres du groupe
+  if (window.multiState?.active && state.group?.members?.length > 0) {
+    wsSend('dungeon_tp_group', {
+      groupMembers: state.group.members,
+      zone: 'overworld',
+      roomId: 0,
+      fromSessionId: window.multiState.sessionId,
+      fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+      exitDungeon: true,
+    });
+  }
 
   state.highlight = { type:null, cells:[], expireAt:0 };
   if (state.targeting.active) {

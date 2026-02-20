@@ -34,6 +34,24 @@ function acceptGroupInvite(fromSessionId, fromName) {
   addLog(`Vous avez rejoint le groupe de ${fromName}`, 'success');
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
   if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
+
+  // ── TP AUTOMATIQUE SI LE CHEF EST DANS UN DONJON ──────────────
+  // Vérifier si le joueur qui nous a invité est dans un donjon
+  const rp = window.multiState?.remotePlayers?.[fromSessionId];
+  if (rp && rp.location && rp.location !== 'overworld') {
+    // Le chef est dans un donjon — on le rejoint automatiquement
+    const dungeonZones = ['dungeon_r1','dungeon_r2','dungeon_r3','dungeon_boss'];
+    if (dungeonZones.includes(rp.location)) {
+      const roomId = rp.location === 'dungeon_boss' ? 4 :
+                     parseInt(rp.location.replace('dungeon_r','')) || 1;
+      addLog(`⚿ ${fromName} est dans le donjon — téléportation en cours!`, 'action');
+      setTimeout(() => {
+        if (typeof acceptJoinDungeon === 'function') {
+          acceptJoinDungeon(fromSessionId, fromName, rp.location, roomId);
+        }
+      }, 800);
+    }
+  }
 }
 
 function declineGroupInvite(fromSessionId, fromName) {
