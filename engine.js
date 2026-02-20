@@ -829,7 +829,7 @@ function drawGrid() {
   }
 
   // Decorations
-  if (state.opts.deco && !tactical && !dungeonState?.active && !bossRoom?.active) {
+  if (state.opts.deco && !tactical) {
     const sortedDeco=[...DECORATIONS].sort((a,b)=>(a.gx+a.gy)-(b.gx+b.gy));
     sortedDeco.forEach(d=>{ if(!state.terrain[`${d.gx},${d.gy}`]) drawDecoration(d); });
   }
@@ -838,7 +838,7 @@ function drawGrid() {
   drawPath();
 
   // Training zone border (only on main map)
-  if (!tactical && !dungeonState?.active && !bossRoom?.active) {
+  if (!tactical) {
     const corners=[[12,12],[15,12],[15,15],[12,15]];
     ctx.strokeStyle='rgba(180,140,30,0.25)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
     const pts=corners.map(([x,y])=>gridToIso(x,y));
@@ -875,7 +875,7 @@ function drawGrid() {
   // Enemies
   for (const enemy of state.enemies) {
     if (!enemy.alive) continue;
-    if (enemy.isBoss) continue; // drawn separately by drawBossOnGrid()
+
     const iso=gridToIso(enemy.gridX,enemy.gridY);
     const ecx=iso.x, ecy=iso.y+CELL_H/2;
     let ecolor = enemy.isDummy ? '#8a7040' : ({'fracture':'#9b4dca','gloom':'#e74c3c','revenant':'#27ae60','arcane':'#4ecdc4'}[enemy.type]||'#e74c3c');
