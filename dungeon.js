@@ -87,36 +87,22 @@ function checkPortalStep() {
     const myName = typeof getMyName === 'function' ? getMyName() : 'Joueur';
     DungeonSystem.atPortal.set('me', myName);
 
-    // 1er au portail = chef
-    if (!DungeonSystem.leaderSessionId) {
-      DungeonSystem.leaderSessionId = 'me';
-      DungeonSystem.leaderName = myName;
-    }
-
+    // On envoie au serveur — c'est LUI qui décide si on est chef
+    // Le serveur broadcastera dungeon_at_portal à tous (y compris nous)
+    // avec leaderSessionId → on mettra à jour là
     if (window.multiState && window.multiState.active) {
       wsSend('dungeon_at_portal', { name: myName });
+    } else {
+      // Solo : on est forcément chef
+      DungeonSystem.leaderSessionId = 'me';
+      DungeonSystem.leaderName = myName;
+      openPortalModal();
+      if (typeof addLog === 'function') addLog('⚿ Portail du donjon — chef d\'expédition.', 'action');
     }
-
-    openPortalModal();
-    if (typeof addLog === 'function') addLog('⚿ Portail du donjon — vous êtes' + (DungeonSystem.leaderSessionId === 'me' ? ' chef d\'expédition.' : ' au portail.'), 'action');
 
   } else if (!onPortal && DungeonSystem.portalOpen) {
     DungeonSystem.portalOpen = false;
     DungeonSystem.atPortal.delete('me');
-
-    if (DungeonSystem.leaderSessionId === 'me') {
-      DungeonSystem.leaderSessionId = null;
-      DungeonSystem.leaderName = null;
-      // Passer le relais au prochain dans atPortal
-      for (const [sid, name] of DungeonSystem.atPortal.entries()) {
-        DungeonSystem.leaderSessionId = sid;
-        DungeonSystem.leaderName = name;
-        if (window.multiState && window.multiState.active) {
-          wsSend('dungeon_promote_leader', { targetSessionId: sid });
-        }
-        break;
-      }
-    }
 
     if (window.multiState && window.multiState.active) {
       wsSend('dungeon_left_portal', {});
@@ -374,30 +360,65 @@ function onDungeonMessage(msg) {
   if (type === 'dungeon_at_portal') {
     if (DungeonSystem.inDungeon) return;
     var sid = msg.sessionId;
+    var mySessionId = window.multiState && window.multiState.sessionId;
     var name = msg.name || (sid ? sid.slice(0, 6) : 'Joueur');
-    DungeonSystem.atPortal.set(sid, name);
+    var serverLeader = msg.leaderSessionId;
 
-    if (!DungeonSystem.leaderSessionId) {
-      DungeonSystem.leaderSessionId = sid;
-      DungeonSystem.leaderName = name;
-      if (!DungeonSystem.portalOpen) showPortalNotifForOthers(name, sid);
+    // Enregistrer ce joueur au portail
+    // Si c'est nous-mêmes (broadcast revient au sender), utiliser 'me'
+    if (sid === mySessionId) {
+      DungeonSystem.atPortal.set('me', name);
+    } else {
+      DungeonSystem.atPortal.set(sid, name);
     }
-    if (DungeonSystem.portalOpen) refreshPortalModal();
-    if (typeof addLog === 'function') addLog('⚿ ' + name + ' arrive au portail.', 'normal');
+
+    // Le serveur dit qui est le chef
+    if (serverLeader === mySessionId) {
+      DungeonSystem.leaderSessionId = 'me';
+      DungeonSystem.leaderName = name;
+    } else {
+      DungeonSystem.leaderSessionId = serverLeader;
+      // Trouver le nom du chef
+      if (serverLeader && serverLeader !== mySessionId) {
+        var leaderRp = window.multiState && window.multiState.remotePlayers && window.multiState.remotePlayers[serverLeader];
+        DungeonSystem.leaderName = (leaderRp && leaderRp.name) || DungeonSystem.atPortal.get(serverLeader) || serverLeader.slice(0, 6);
+      }
+    }
+
+    // Si on est sur le portail : ouvrir/rafraîchir le modal
+    if (DungeonSystem.portalOpen) {
+      openPortalModal();
+    } else {
+      // On n'est pas au portail : notif seulement si c'est le 1er arrivé (nouveau chef)
+      // et que ce n'est pas nous
+      if (sid !== mySessionId && DungeonSystem.atPortal.size === 1 && !DungeonSystem.atPortal.has('me')) {
+        showPortalNotifForOthers(DungeonSystem.leaderName || name, serverLeader || sid);
+      }
+    }
+
+    if (sid !== mySessionId && typeof addLog === 'function') addLog('⚿ ' + name + ' arrive au portail.', 'normal');
   }
 
   else if (type === 'dungeon_left_portal') {
     var sid2 = msg.sessionId;
     DungeonSystem.atPortal.delete(sid2);
-    if (DungeonSystem.leaderSessionId === sid2) {
-      DungeonSystem.leaderSessionId = null; DungeonSystem.leaderName = null;
-      for (var s of DungeonSystem.atPortal.keys()) {
-        DungeonSystem.leaderSessionId = s;
-        DungeonSystem.leaderName = DungeonSystem.atPortal.get(s);
-        break;
-      }
-      if (!DungeonSystem.leaderSessionId) clearPortalNotif();
+    var mySessionId2 = window.multiState && window.multiState.sessionId;
+    var newLeader = msg.leaderSessionId;
+
+    if (newLeader === mySessionId2) {
+      DungeonSystem.leaderSessionId = 'me';
+      DungeonSystem.leaderName = typeof getMyName === 'function' ? getMyName() : 'Vous';
+      if (DungeonSystem.portalOpen && typeof addLog === 'function') addLog('⚿ Vous êtes maintenant chef d\'expédition !', 'action');
+    } else if (newLeader) {
+      DungeonSystem.leaderSessionId = newLeader;
+      var leaderRp2 = window.multiState && window.multiState.remotePlayers && window.multiState.remotePlayers[newLeader];
+      DungeonSystem.leaderName = (leaderRp2 && leaderRp2.name) || newLeader.slice(0, 6);
+    } else {
+      DungeonSystem.leaderSessionId = null;
+      DungeonSystem.leaderName = null;
+      clearPortalNotif();
     }
+
     if (DungeonSystem.portalOpen) refreshPortalModal();
   }
 

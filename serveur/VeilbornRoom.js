@@ -104,16 +104,28 @@ class VeilbornRoom extends Room {
     });
 
     this.onMessage('dungeon_at_portal', (client, data) => {
-      // Broadcaster à tout le monde sauf l'émetteur
+      if (!this.portalPlayers) this.portalPlayers = new Map();
+      this.portalPlayers.set(client.sessionId, data.name);
+      if (!this.portalLeader) this.portalLeader = client.sessionId;
+      // Broadcaster à TOUS (including sender) avec leaderSessionId
       this.broadcast('dungeon_at_portal', {
         sessionId: client.sessionId,
         name: data.name,
-      }, { except: client });
+        leaderSessionId: this.portalLeader,
+      });
     });
 
     this.onMessage('dungeon_left_portal', (client, data) => {
+      if (this.portalPlayers) this.portalPlayers.delete(client.sessionId);
+      if (this.portalLeader === client.sessionId) {
+        this.portalLeader = null;
+        if (this.portalPlayers && this.portalPlayers.size > 0) {
+          this.portalLeader = this.portalPlayers.keys().next().value;
+        }
+      }
       this.broadcast('dungeon_left_portal', {
         sessionId: client.sessionId,
+        leaderSessionId: this.portalLeader || null,
       }, { except: client });
     });
 
@@ -129,6 +141,8 @@ class VeilbornRoom extends Room {
     });
 
     this.onMessage('dungeon_start', (client, data) => {
+      if (this.portalPlayers) this.portalPlayers.clear();
+      this.portalLeader = null;
       this.broadcast('dungeon_start', {
         sessionId: client.sessionId,
         readySessions: data.readySessions || [],
