@@ -245,20 +245,20 @@ function handleServerMessage(msg) {
     if (!multiState.remotePlayers[msg.sessionId]) {
       multiState.remotePlayers[msg.sessionId] = { hp: 100, hpMax: 100 };
     }
-    const _rmv = multiState.remotePlayers[msg.sessionId];
-    _rmv.x = msg.x; _rmv.y = msg.y;
-    if (msg.name) _rmv.name = msg.name;
-    if (msg.location !== undefined) _rmv.location = msg.location;
+    const _rm = multiState.remotePlayers[msg.sessionId];
+    _rm.x = msg.x; _rm.y = msg.y;
+    if (msg.name) _rm.name = msg.name;
+    if (msg.location !== undefined) _rm.location = msg.location;
     updateRemotePlayersPanel();
   }
 
   else if (type === 'hp_update') {
     if (msg.sessionId === multiState.sessionId) return;
     if (multiState.remotePlayers[msg.sessionId]) {
-      const _rhp = multiState.remotePlayers[msg.sessionId];
-      _rhp.hp = msg.hp; _rhp.hpMax = msg.hpMax;
-      if (msg.talentBonuses) _rhp.talentBonuses = msg.talentBonuses;
-      if (msg.talentLevel) _rhp.talentLevel = msg.talentLevel;
+      const _rh = multiState.remotePlayers[msg.sessionId];
+      _rh.hp = msg.hp; _rh.hpMax = msg.hpMax;
+      if (msg.talentBonuses) _rh.talentBonuses = msg.talentBonuses;
+      if (msg.talentLevel) _rh.talentLevel = msg.talentLevel;
       updateRemotePlayersPanel();
     }
   }
@@ -343,12 +343,20 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'group_leave') {
-    // Un membre a quitte le groupe -> le retirer localement
-    const _leaveIdx = state.group.members.indexOf(msg.leavingSessionId);
-    if (_leaveIdx > -1) state.group.members.splice(_leaveIdx, 1);
+    const _li = state.group.members.indexOf(msg.leavingSessionId);
+    if (_li > -1) state.group.members.splice(_li, 1);
     if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
     if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
     addLog(`${msg.leavingName} a quitte le groupe.`, 'normal');
+  }
+
+  else if (type === 'dungeon_status') {
+    // Un membre du groupe est dans un donjon — proposer de rejoindre
+    if (msg.fromSessionId !== multiState.sessionId && state.group.members.includes(msg.fromSessionId)) {
+      if (typeof joinDungeonInProgress === 'function') {
+        joinDungeonInProgress(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId);
+      }
+    }
   }
 
   else if (type === 'dungeon_request') {
@@ -364,9 +372,7 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_decline') {
-    if (typeof registerDungeonDecline === 'function') {
-      registerDungeonDecline(msg.declineSessionId, msg.declineName);
-    }
+    if (typeof registerDungeonDecline === 'function') registerDungeonDecline(msg.declineSessionId, msg.declineName);
   }
 
   // ────────────────────────────────────────────────────────────
@@ -475,7 +481,9 @@ function setupBroadcasters() {
   multiState.broadcastHp = () => {
     wsSend('hp_update', { hp: state.hp, hpMax: state.hpMax, talentBonuses: state.talentBonuses || null, talentLevel: state.talents ? state.talents.level : 1 });
   };
-  multiState.broadcastLocation = () => { wsSend('move', { x: state.player.gridX, y: state.player.gridY, location: state.player?.location || 'overworld' }); };
+  multiState.broadcastLocation = () => {
+    wsSend('move', { x: state.player.gridX, y: state.player.gridY, location: state.player?.location || 'overworld' });
+  };
   updateMultiIndicator();
 }
 

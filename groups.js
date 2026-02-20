@@ -41,70 +41,31 @@ function declineGroupInvite(fromSessionId, fromName) {
   addLog(`❌ Invitation de ${fromName} refusée`, 'normal');
 }
 
-// ─── SYSTÈME DE VOTE D'ENTRÉE AU DONJON ─────────────────────
-// État local du vote
-const DungeonVote = {
-  active: false,
-  initiatorId: null,   // sessionId de celui qui a initié
-  accepted: {},        // { sessionId: true/false }
-  needed: 0,           // nombre de votes attendus
-};
-
-// Initier un vote de groupe pour entrer au donjon (appelé par enterDungeon)
-function initiateDungeonVote() {
-  if (!window.multiState?.active || state.group.members.length === 0) return false;
-
-  DungeonVote.active = true;
-  DungeonVote.initiatorId = window.multiState.sessionId;
-  DungeonVote.accepted = {};
-  DungeonVote.needed = state.group.members.length;
-
-  // Envoyer dungeon_request à CHAQUE membre du groupe
-  state.group.members.forEach(memberId => {
-    const rp = window.multiState.remotePlayers[memberId];
-    const name = rp ? rp.name : ('Joueur-' + String(memberId).slice(0,4));
-    wsSend('dungeon_request', {
-      fromSessionId: window.multiState.sessionId,
-      fromName: getMyName(),
-      targetSessionId: memberId,
-      targetName: name,
-      dungeonType: 'DONJON',
-    });
+// ─── GESTION DES DEMANDES DE DONJON ──────────────────────────
+function requestDungeonAccess(targetSessionId, targetName, dungeonType) {
+  if (!window.multiState?.active) return;
+  
+  wsSend('dungeon_request', {
+    fromSessionId: window.multiState.sessionId,
+    fromName: getMyName(),
+    targetSessionId,
+    targetName,
+    dungeonType,
   });
-
-  addLog(`Vote d'entree au donjon envoye (${DungeonVote.needed} joueur(s))...`, 'action');
-  return true; // signifie "on attend les votes, pas encore d'entree"
+  
+  addLog(`📨 Demande d'accès au donjon vers ${targetName}...`, 'normal');
 }
 
-// Recevoir une demande d'entree au donjon (depuis le chef de groupe)
 function handleDungeonRequest(fromSessionId, fromName, dungeonType) {
-  state.dungeonRequest = { fromSessionId, fromName, dungeonType, timestamp: Date.now() };
+  state.dungeonRequest = {
+    fromSessionId,
+    fromName,
+    dungeonType,
+    timestamp: Date.now(),
+  };
+  
+  // Créer une notification d'acceptation/refus
   showDungeonRequestNotification(fromSessionId, fromName, dungeonType);
-}
-
-// Enregistrer un vote d'acceptation recu (côté initiateur)
-function registerDungeonAccept(acceptorSessionId, acceptorName) {
-  if (!DungeonVote.active) return;
-  DungeonVote.accepted[acceptorSessionId] = true;
-  const count = Object.keys(DungeonVote.accepted).length;
-  addLog(`${acceptorName} accepte! (${count}/${DungeonVote.needed})`, 'success');
-
-  if (count >= DungeonVote.needed) {
-    // Tout le monde a accepte -> montrer le bouton d'entree
-    DungeonVote.active = false;
-    showDungeonReadyUI('le groupe');
-  }
-}
-
-// Enregistrer un refus recu (côté initiateur)
-function registerDungeonDecline(declineSessionId, declineName) {
-  if (!DungeonVote.active) return;
-  DungeonVote.active = false;
-  DungeonVote.accepted = {};
-  addLog(`${declineName} refuse l'entree au donjon. Vote annule.`, 'normal');
-  // Retirer le bouton s'il existe
-  const btn = document.getElementById('dungeon-ready-btn');
-  if (btn) btn.remove();
 }
 
 function showDungeonRequestNotification(fromSessionId, fromName, dungeonType) {
@@ -264,7 +225,7 @@ function showPlayerContextMenu(sessionId, playerName, mouseX, mouseY) {
           }
           break;
         case 'followPlayer':
-          addLog(`Suivre ${playerName} (à implémenter)`, 'normal');
+          if (typeof followPlayer === 'function') followPlayer(sessionId, playerName);
           break;
         case 'blockPlayer':
           addLog(`${playerName} a été bloqué`, 'normal');
@@ -299,37 +260,59 @@ function showPlayerContextMenu(sessionId, playerName, mouseX, mouseY) {
   }, 10);
 }
 
-function leaveGroup(sessionId, playerName) {
-  // Retirer ce joueur de notre liste locale
-  const idx = state.group.members.indexOf(sessionId);
-  if (idx > -1) state.group.members.splice(idx, 1);
+// ─── SYSTÈME DE VOTE D'ENTRÉE AU DONJON ─────────────────────────
+const DungeonVote = { active: false, initiatorId: null, accepted: {}, needed: 0 };
 
-  // Notifier le serveur
-  if (window.multiState?.active) {
-    wsSend('group_leave', {
-      targetSessionId: sessionId,
-      leavingSessionId: window.multiState.sessionId,
-      leavingName: getMyName(),
-    });
-  }
-
-  addLog(`Vous avez quitte le groupe de ${playerName}`, 'normal');
-  if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
-  if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
+function initiateDungeonVote() {
+  if (!window.multiState?.active || state.group.members.length === 0) return false;
+  DungeonVote.active = true;
+  DungeonVote.initiatorId = window.multiState.sessionId;
+  DungeonVote.accepted = {};
+  DungeonVote.needed = state.group.members.length;
+  state.group.members.forEach(memberId => {
+    const rp = window.multiState.remotePlayers[memberId];
+    const name = rp ? rp.name : ('Joueur-' + String(memberId).slice(0,4));
+    wsSend('dungeon_request', { fromSessionId: window.multiState.sessionId, fromName: getMyName(), targetSessionId: memberId, targetName: name, dungeonType: 'DONJON' });
+  });
+  addLog(`Vote donjon envoye (${DungeonVote.needed} joueur(s))...`, 'action');
+  return true;
 }
 
-// Quitter son propre groupe (bouton "quitter le groupe")
+function registerDungeonAccept(acceptorSessionId, acceptorName) {
+  if (!DungeonVote.active) return;
+  DungeonVote.accepted[acceptorSessionId] = true;
+  const count = Object.keys(DungeonVote.accepted).length;
+  addLog(`${acceptorName} accepte! (${count}/${DungeonVote.needed})`, 'success');
+  if (count >= DungeonVote.needed) {
+    DungeonVote.active = false;
+    showDungeonReadyUI('le groupe');
+  }
+}
+
+function registerDungeonDecline(declineSessionId, declineName) {
+  if (!DungeonVote.active) return;
+  DungeonVote.active = false; DungeonVote.accepted = {};
+  addLog(`${declineName} refuse. Vote annule.`, 'normal');
+  const btn = document.getElementById('dungeon-ready-btn');
+  if (btn) btn.remove();
+}
+
+
+function leaveGroup(sessionId, playerName) {
+  const idx = state.group.members.indexOf(sessionId);
+  if (idx > -1) state.group.members.splice(idx, 1);
+  if (window.multiState?.active) {
+    wsSend('group_leave', { targetSessionId: sessionId, leavingSessionId: window.multiState.sessionId, leavingName: getMyName() });
+  }
+  if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
+  addLog(`Vous avez quitte le groupe de ${playerName}`, 'normal');
+}
+
 function leaveMyGroup() {
   if (state.group.members.length === 0) return;
-  if (window.multiState?.active) {
-    wsSend('group_leave_self', {
-      leavingSessionId: window.multiState.sessionId,
-      leavingName: getMyName(),
-    });
-  }
+  if (window.multiState?.active) wsSend('group_leave_self', { leavingSessionId: window.multiState.sessionId, leavingName: getMyName() });
   state.group.members = [];
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
-  if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
   addLog('Vous avez quitte le groupe.', 'normal');
 }
 
@@ -348,17 +331,6 @@ function renderGroupPlayers() {
   
   // Afficher le groupe s'il y a des membres
   if (groupPanel) groupPanel.style.display = 'block';
-
-  // Bouton quitter le groupe
-  let leaveBtn = document.getElementById('group-leave-btn');
-  if (!leaveBtn) {
-    leaveBtn = document.createElement('button');
-    leaveBtn.id = 'group-leave-btn';
-    leaveBtn.style.cssText = 'width:100%;padding:4px;margin-bottom:6px;background:rgba(200,50,50,0.2);border:1px solid rgba(200,50,50,0.4);border-radius:3px;color:#ff8888;font-family:Cinzel,serif;font-size:10px;cursor:pointer;';
-    leaveBtn.textContent = 'Quitter le groupe';
-    leaveBtn.onclick = () => leaveMyGroup();
-    if (groupPanel) groupPanel.insertBefore(leaveBtn, container);
-  }
   
   container.innerHTML = '';
   
@@ -403,33 +375,6 @@ function renderGroupPlayers() {
     
     container.appendChild(item);
   });
-}
-
-// ─── PANEL GROUPE : bouton entrer au donjon ─────────────────
-function addDungeonButtonToGroupPanel() {
-  const panel = document.getElementById('group-panel');
-  if (!panel) return;
-  // Supprimer l'ancien bouton s'il existe
-  const old = document.getElementById('group-dungeon-btn');
-  if (old) old.remove();
-
-  const btn = document.createElement('button');
-  btn.id = 'group-dungeon-btn';
-  btn.style.cssText = `
-    width: 100%; margin-top: 8px; padding: 8px 12px;
-    background: linear-gradient(135deg, rgba(155,77,202,0.3), rgba(107,43,168,0.3));
-    border: 1px solid #9b4dca88; border-radius: 4px;
-    color: #c8a96e; font-family: 'Cinzel', serif; font-size: 11px;
-    cursor: pointer; letter-spacing: 1px;
-    transition: all 0.2s;
-  `;
-  btn.textContent = '⚿ Entrer au donjon';
-  btn.onmouseover = () => { btn.style.background = 'linear-gradient(135deg, rgba(155,77,202,0.5), rgba(107,43,168,0.5))'; };
-  btn.onmouseout  = () => { btn.style.background = 'linear-gradient(135deg, rgba(155,77,202,0.3), rgba(107,43,168,0.3))'; };
-  btn.onclick = () => {
-    if (typeof enterDungeon === 'function') enterDungeon();
-  };
-  panel.appendChild(btn);
 }
 
 // ─── AFFICHER LE UI POUR ENTRER AU DONJON ──────────────

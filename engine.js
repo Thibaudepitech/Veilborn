@@ -32,6 +32,7 @@ let state = {
   highlight:{ type:null, cells:[], expireAt:0 },
   // ─── SYSTÈME DE GROUPE ─────────────────────────────────────
   group: { members: [], partyLeaderId: null },
+  follow: { active: false, targetSessionId: null, targetName: null },
   dungeonRequest: null,  // { fromSessionId, fromName, dungeonType, timestamp }
   // ───────────────────────────────────────────────────────────
   enemies:[
@@ -387,12 +388,81 @@ function initPlayerPixelPos() {
   Object.assign(state.player, {px,py,fromPx:px,fromPy:py,toPx:px,toPy:py,t:1});
 }
 
-function startMoving(path) {
+function startMoving(path, fromFollow) {
   if (state.buffs.defensiveStance || state.buffs.rootSelf) {
     addLog('Vous êtes immobilisé!', 'normal'); return;
   }
+  // Si mouvement manuel (pas depuis follow), annuler le suivi
+  if (!fromFollow && state.follow?.active) stopFollowing();
   if (!path || path.length===0) { state.player.path=[]; return; }
   state.player.path = path; state.player.moving = true; beginNextStep();
+}
+
+// ═══════════════════════════════════════════════════════
+// FOLLOW PLAYER SYSTEM
+// ═══════════════════════════════════════════════════════
+function followPlayer(sessionId, playerName) {
+  if (state.follow?.active && state.follow.targetSessionId === sessionId) {
+    // Arrêter si on suit déjà ce joueur
+    stopFollowing();
+    return;
+  }
+  state.follow = { active: true, targetSessionId: sessionId, targetName: playerName };
+  addLog(`Vous suivez ${playerName}. Clic sur une case pour arrêter.`, 'normal');
+  tickFollowPlayer();
+}
+
+function stopFollowing() {
+  if (!state.follow?.active) return;
+  const name = state.follow.targetName;
+  state.follow = { active: false, targetSessionId: null, targetName: null };
+  state.player.path = [];
+  state.player.moving = false;
+  if (name) addLog(`Vous ne suivez plus ${name}.`, 'normal');
+}
+
+function tickFollowPlayer() {
+  if (!state.follow?.active) return;
+  const rp = window.multiState?.remotePlayers?.[state.follow.targetSessionId];
+  if (!rp) { stopFollowing(); return; }
+
+  // Cible : case adjacente (Manhattan distance 1 autour du joueur suivi)
+  const tx = rp.x || 0, ty = rp.y || 0;
+  const px = state.player.gridX, py = state.player.gridY;
+  const dist = Math.abs(tx - px) + Math.abs(ty - py);
+
+  if (dist <= 1) return; // déjà adjacent, rester sur place
+
+  // Trouver la case adjacente libre la plus proche de notre position actuelle
+  const adjCells = [
+    {x: tx+1, y: ty}, {x: tx-1, y: ty},
+    {x: tx, y: ty+1}, {x: tx, y: ty-1},
+  ].filter(cell => {
+    if (cell.x < 0 || cell.y < 0 || cell.x >= GRID_SIZE || cell.y >= GRID_SIZE) return false;
+    if (state.terrain[`${cell.x},${cell.y}`] === 'blocked') return false;
+    if (state.enemies.some(e => e.alive && e.gridX === cell.x && e.gridY === cell.y)) return false;
+    return true;
+  });
+
+  if (adjCells.length === 0) return; // coincé
+
+  // Choisir la case adjacente la plus proche de notre position
+  adjCells.sort((a,b) =>
+    (Math.abs(a.x-px)+Math.abs(a.y-py)) - (Math.abs(b.x-px)+Math.abs(b.y-py))
+  );
+  const target = adjCells[0];
+
+  // Chercher un chemin vers cette case
+  const path = aStar(px, py, target.x, target.y);
+  if (path && path.length > 0) {
+    // Adapter vitesse au joueur suivi si classe connue
+    startMoving(path, true);
+  }
+}
+
+// Annuler le follow si le joueur clique manuellement sur une case
+function cancelFollowOnClick() {
+  if (state.follow?.active) stopFollowing();
 }
 
 function beginNextStep() {
@@ -436,6 +506,8 @@ function updateMovement(timestamp) {
       if (state.terrain[`${arrived.x},${arrived.y}`]==='veil') addLog('Case de Voile — +20% dégâts!','action');
       // Portal check — boss room teleport
       if (typeof checkPlayerOnPortal === 'function') checkPlayerOnPortal(arrived.x, arrived.y);
+      // Follow check — update path toward followed player each step
+      if (state.follow?.active && p.path.length === 0) tickFollowPlayer();
 
       // Animal form: heal on contact with enemies
       if (state.buffs.animalForm) {
@@ -817,7 +889,7 @@ function drawGrid() {
     }
   }
 
-  // Remote players — filtrer par location (donjon/overworld)
+  // Remote players — only render if same location zone
   if (window.multiState) {
     const _myZone = state.player?.location || 'overworld';
     for (const [_pid, rp] of Object.entries(window.multiState.remotePlayers||{})) {
@@ -826,11 +898,13 @@ function drawGrid() {
       const rcx=iso.x, rcy=iso.y+CELL_H/2;
       const rcls = rp.classId ? CLASSES[rp.classId] : null;
       const rcolor = rcls ? rcls.color : '#00ccff';
-      drawEntityAt(rcx,rcy,rcolor,'\u25c7',false,0,1,null);
+      const isFollowed = state.follow?.active && state.follow.targetSessionId === _pid;
+      drawEntityAt(rcx,rcy,rcolor,isFollowed ? '◈' : '◇',false,0,1,null);
       ctx.font='8px "Cinzel",serif'; ctx.fillStyle=rcolor; ctx.globalAlpha=0.8; ctx.textAlign='center';
-      ctx.fillText(rp.name||'Alli\xe9',rcx,rcy-24); ctx.globalAlpha=1;
+      ctx.fillText(rp.name||'Allié',rcx,rcy-24); ctx.globalAlpha=1;
     }
   }
+
   // Player
   if (state.selectedClass) {
     const cls=CLASSES[state.selectedClass];

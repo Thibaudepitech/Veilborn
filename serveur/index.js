@@ -237,23 +237,27 @@ wss.on('connection', (ws) => {
       const room = roomMap.get(ws.roomCode);
       if (!room) return;
       const leaver = room.players.get(ws);
-      broadcast(room, 'group_leave', {
-        leavingSessionId: ws.sessionId,
-        leavingName: leaver?.name || 'Joueur',
-        targetSessionId: msg.targetSessionId,
-      }, ws);
+      broadcast(room, 'group_leave', { leavingSessionId: ws.sessionId, leavingName: leaver?.name || 'Joueur', targetSessionId: msg.targetSessionId }, ws);
     }
 
     else if (type === 'group_leave_self') {
       const room = roomMap.get(ws.roomCode);
       if (!room) return;
       const leaver = room.players.get(ws);
-      // Broadcast a tous (y compris l'expediteur pour confirmation)
-      broadcast(room, 'group_leave', {
-        leavingSessionId: ws.sessionId,
-        leavingName: leaver?.name || 'Joueur',
-        targetSessionId: null,
-      });
+      broadcast(room, 'group_leave', { leavingSessionId: ws.sessionId, leavingName: leaver?.name || 'Joueur', targetSessionId: null });
+    }
+
+    else if (type === 'dungeon_status') {
+      // Broadcast aux membres du groupe que ce joueur est dans un donjon
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const sender = room.players.get(ws);
+      broadcast(room, 'dungeon_status', {
+        fromSessionId: ws.sessionId,
+        fromName: sender?.name || msg.fromName || 'Joueur',
+        zone: msg.zone,
+        roomId: msg.roomId,
+      }, ws);
     }
 
     // ── DUNGEON REQUESTS ─────────────────────────────
