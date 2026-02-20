@@ -817,11 +817,11 @@ function drawGrid() {
     }
   }
 
-  // Remote players — only render those in the same location as local player
+  // Remote players — only render those in the same location
   if (window.multiState) {
-    const myLoc = state.player?.location || 'overworld';
+    const _myLoc = state.player?.location || 'overworld';
     for (const [pid, rp] of Object.entries(window.multiState.remotePlayers||{})) {
-      if ((rp.location || 'overworld') !== myLoc) continue;
+      if ((rp.location || 'overworld') !== _myLoc) continue;
       const iso=gridToIso(rp.x||7,rp.y||7);
       const rcx=iso.x, rcy=iso.y+CELL_H/2;
       const rcls = rp.classId ? CLASSES[rp.classId] : null;
@@ -831,7 +831,6 @@ function drawGrid() {
       ctx.fillText(rp.name||'Allié',rcx,rcy-24); ctx.globalAlpha=1;
     }
   }
-
   // Player
   if (state.selectedClass) {
     const cls=CLASSES[state.selectedClass];

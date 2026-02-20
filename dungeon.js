@@ -173,7 +173,7 @@ function enterDungeon() {
   if (dungeonState?.active) return;
   if (bossRoom?.active) return;
 
-  // En groupe sans le flag ready → envoyer les invitations et attendre
+  // En groupe sans flag ready → envoyer invitations et attendre
   if (window.multiState?.active && state.group?.members.length > 0 && !state.dungeonPartyReady) {
     const groupMemberIds = state.group.members;
     state.dungeonPendingAccepts = groupMemberIds.length;
@@ -186,11 +186,11 @@ function enterDungeon() {
       }
     });
 
-    addLog('⏳ En attente de l'accord du groupe...', 'normal');
+    addLog("En attente de l'accord du groupe...", "normal");
     return;
   }
 
-  // Réinitialiser le flag pour la prochaine fois
+  // Reinitialiser le flag
   state.dungeonPartyReady = false;
 
   addLog('⚿ Le portail vous aspire dans les profondeurs du donjon...', 'action');

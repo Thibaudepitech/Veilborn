@@ -247,6 +247,7 @@ function _enterRoom(roomIdx) {
   const roomCfg = RANDOM_ROOM_POOL.find(r => r.id === roomId);
   if (!roomCfg) { console.error('Room config missing:', roomId); return; }
 
+  if (typeof getDungeonScaling === 'undefined') { console.error('getDungeonScaling not loaded'); return; }
   const sc = getDungeonScaling(roomIdx + 1);
   const rs = runState.scaling;
 

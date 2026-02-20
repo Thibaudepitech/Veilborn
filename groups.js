@@ -18,12 +18,12 @@ function inviteToGroup(targetSessionId, targetName) {
 function acceptGroupInvite(fromSessionId, fromName) {
   if (!window.multiState?.active) return;
   
-  // Ajouter le leader à MON groupe local
+  // Ajouter au groupe
   if (!state.group.members.includes(fromSessionId)) {
     state.group.members.push(fromSessionId);
   }
   
-  // Notifier le leader que j'ai accepté
+  // Notifier le leader
   wsSend('group_accept', {
     fromSessionId,
     acceptorSessionId: window.multiState.sessionId,
@@ -31,9 +31,7 @@ function acceptGroupInvite(fromSessionId, fromName) {
   });
   
   clearNotification('group_invite_' + fromSessionId);
-  addLog(`✅ Vous avez rejoint le groupe de ${fromName}`, 'success');
-  
-  // Mettre à jour l'affichage immédiatement
+  addLog(`Vous avez rejoint le groupe de ${fromName}`, 'success');
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
   if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
 }
@@ -276,7 +274,12 @@ function leaveGroup(sessionId, playerName) {
     });
   }
   
-  addLog(`Vous avez quitté le groupe de ${playerName}`, 'normal');
+  // Si 0 membres restants, dissoudre le groupe
+  if (state.group.members.length <= 0) {
+    state.group.members = [];
+  }
+  if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
+  addLog(`Vous avez quitte le groupe de ${playerName}`, 'normal');
 }
 
 // ─── AFFICHAGE DES JOUEURS EN GROUPE ─────────────────────────
@@ -327,8 +330,9 @@ function renderGroupPlayers() {
       item.style.background = 'rgba(155, 77, 202, 0.15)';
     };
     
-    item.onclick = () => {
-      showPlayerContextMenu(memberId, member.name, event.clientX, event.clientY);
+    item.onclick = (e) => {
+      if (typeof showRemotePlayerStats === 'function') showRemotePlayerStats(memberId);
+      showPlayerContextMenu(memberId, member.name, e.clientX, e.clientY);
     };
     
     item.oncontextmenu = (e) => {
@@ -377,7 +381,6 @@ function showDungeonReadyUI(acceptorName) {
     };
     btn.onclick = () => {
       btn.remove();
-      // Marquer le groupe comme prêt → enterDungeon n'enverra plus de requêtes
       state.dungeonPartyReady = true;
       if (typeof enterDungeon === 'function') {
         enterDungeon();

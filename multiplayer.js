@@ -245,10 +245,12 @@ function handleServerMessage(msg) {
     if (!multiState.remotePlayers[msg.sessionId]) {
       multiState.remotePlayers[msg.sessionId] = { hp: 100, hpMax: 100 };
     }
-    multiState.remotePlayers[msg.sessionId].x = msg.x;
-    multiState.remotePlayers[msg.sessionId].y = msg.y;
-    if (msg.name) multiState.remotePlayers[msg.sessionId].name = msg.name;
-    if (msg.location) multiState.remotePlayers[msg.sessionId].location = msg.location;
+    const rp = multiState.remotePlayers[msg.sessionId];
+    rp.x = msg.x;
+    rp.y = msg.y;
+    if (msg.name) rp.name = msg.name;
+    if (msg.location) rp.location = msg.location;
+    // Only re-render panel if location changed or periodically
     updateRemotePlayersPanel();
   }
 
@@ -331,13 +333,12 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'group_accept') {
-    // L'accepteur a rejoint notre groupe → l'ajouter à notre liste locale
     if (!state.group.members.includes(msg.acceptorSessionId)) {
       state.group.members.push(msg.acceptorSessionId);
     }
     if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
     if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
-    addLog(`✅ ${msg.acceptorName} a rejoint le groupe!`, 'success');
+    addLog(`${msg.acceptorName} a rejoint le groupe!`, 'success');
   }
 
   else if (type === 'dungeon_request') {
@@ -347,22 +348,18 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_accept') {
-    // Un membre du groupe a accepté d'entrer au donjon
-    addLog(`✅ ${msg.acceptorName} accepte d'entrer au donjon!`, 'success');
-
+    addLog(`${msg.acceptorName} accepte d'entrer au donjon!`, 'success');
     if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
     state.dungeonAcceptedCount++;
     const needed = state.dungeonPendingAccepts || (state.group?.members?.length || 1);
-
     if (state.dungeonAcceptedCount >= needed) {
-      // Tout le monde a accepté → afficher le bouton
       state.dungeonAcceptedCount = 0;
       state.dungeonPendingAccepts = 0;
       if (typeof showDungeonReadyUI === 'function') {
         showDungeonReadyUI(msg.acceptorName);
       }
     } else {
-      addLog(`⏳ (${state.dungeonAcceptedCount}/${needed}) membres prêts...`, 'normal');
+      addLog(`En attente (${state.dungeonAcceptedCount}/${needed} prets)...`, 'normal');
     }
   }
 
@@ -548,11 +545,13 @@ function updateRemotePlayersPanel() {
     </div>`;
   }).join('');
 
-  // Ajouter event listeners à tous les joueurs
+  // Ajouter event listeners a tous les joueurs
   document.querySelectorAll('.remote-player-card').forEach(card => {
     card.addEventListener('click', (e) => {
       const sessionId = card.getAttribute('data-session-id');
       const playerName = card.getAttribute('data-player-name');
+      // Afficher les stats dans l'inspecteur
+      if (typeof showRemotePlayerStats === 'function') showRemotePlayerStats(sessionId);
       showPlayerContextMenu(sessionId, playerName, e.clientX, e.clientY);
     });
     card.addEventListener('contextmenu', (e) => {

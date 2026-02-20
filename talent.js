@@ -366,7 +366,15 @@ function renderTalentTree() {
   const container = document.getElementById('talent-branches');
   container.innerHTML = '';
 
-  TALENT_BRANCHES.forEach(branch => {
+  // Filter branches for current class
+  const classRec = CLASS_TALENT_RECOMMENDATIONS[state.selectedClass] || { primary: [], secondary: [] };
+  const relevantBranches = TALENT_BRANCHES.filter(b =>
+    classRec.primary.includes(b.id) || classRec.secondary.includes(b.id)
+  );
+  const displayBranches = relevantBranches.length > 0 ? relevantBranches : TALENT_BRANCHES;
+
+  displayBranches.forEach(branch => {
+    const isPrimary = classRec.primary.includes(branch.id);
     const branchDiv = document.createElement('div');
     branchDiv.className = 'talent-branch';
     branchDiv.style.setProperty('--branch-color', branch.color);
@@ -386,6 +394,7 @@ function renderTalentTree() {
       <div class="branch-header" style="border-bottom:1px solid ${branch.color}33;padding-bottom:6px;margin-bottom:10px;">
         <span class="branch-icon" style="color:${branch.color};font-size:16px;">${branch.icon}</span>
         <span class="branch-name" style="color:${branch.color};">${branch.name}</span>
+        ${isPrimary ? `<span style="font-size:9px;color:${branch.color};background:${branch.color}22;padding:1px 5px;border-radius:2px;margin-left:4px;font-family:'Cinzel',serif;">PRIMAIRE</span>` : `<span style="font-size:9px;color:#5a4030;background:rgba(80,50,20,0.2);padding:1px 5px;border-radius:2px;margin-left:4px;font-family:'Cinzel',serif;">secondaire</span>`}
         <span class="branch-desc">${branch.desc}</span>
         ${totalInvested > 0 ? `<span style="float:right;font-family:'Cinzel',serif;font-size:9px;color:${branch.color};background:${branch.color}22;padding:1px 6px;border-radius:2px;">${totalInvested} rang(s)</span>` : ''}
       </div>
