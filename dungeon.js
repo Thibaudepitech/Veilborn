@@ -87,11 +87,13 @@ function checkPortalStep() {
     const myName = typeof getMyName === 'function' ? getMyName() : 'Joueur';
     DungeonSystem.atPortal.set('me', myName);
 
-    // On envoie au serveur — c'est LUI qui décide si on est chef
-    // Le serveur broadcastera dungeon_at_portal à tous (y compris nous)
-    // avec leaderSessionId → on mettra à jour là
     if (window.multiState && window.multiState.active) {
+      // Envoyer au serveur — il va broadcaster à tous avec leaderSessionId
+      // On ouvre le modal tout de suite (on ne sait pas encore si on est chef)
+      // onDungeonMessage mettra à jour leaderSessionId et refreshera
       wsSend('dungeon_at_portal', { name: myName });
+      openPortalModal(); // ouvre immédiatement, sera mis à jour à la réponse
+      if (typeof addLog === 'function') addLog('⚿ Portail du donjon...', 'action');
     } else {
       // Solo : on est forcément chef
       DungeonSystem.leaderSessionId = 'me';
@@ -364,34 +366,30 @@ function onDungeonMessage(msg) {
     var name = msg.name || (sid ? sid.slice(0, 6) : 'Joueur');
     var serverLeader = msg.leaderSessionId;
 
-    // Enregistrer ce joueur au portail
-    // Si c'est nous-mêmes (broadcast revient au sender), utiliser 'me'
+    // Enregistrer dans atPortal (clé 'me' si c'est nous, sinon sessionId)
     if (sid === mySessionId) {
       DungeonSystem.atPortal.set('me', name);
     } else {
       DungeonSystem.atPortal.set(sid, name);
     }
 
-    // Le serveur dit qui est le chef
+    // Mettre à jour le chef selon le serveur (source de vérité)
     if (serverLeader === mySessionId) {
       DungeonSystem.leaderSessionId = 'me';
       DungeonSystem.leaderName = name;
     } else {
       DungeonSystem.leaderSessionId = serverLeader;
-      // Trouver le nom du chef
-      if (serverLeader && serverLeader !== mySessionId) {
-        var leaderRp = window.multiState && window.multiState.remotePlayers && window.multiState.remotePlayers[serverLeader];
-        DungeonSystem.leaderName = (leaderRp && leaderRp.name) || DungeonSystem.atPortal.get(serverLeader) || serverLeader.slice(0, 6);
-      }
+      var leaderRp = window.multiState && window.multiState.remotePlayers && window.multiState.remotePlayers[serverLeader];
+      DungeonSystem.leaderName = (leaderRp && leaderRp.name) || DungeonSystem.atPortal.get(serverLeader) || (serverLeader ? serverLeader.slice(0, 6) : '?');
     }
 
-    // Si on est sur le portail : ouvrir/rafraîchir le modal
     if (DungeonSystem.portalOpen) {
-      openPortalModal();
-    } else {
-      // On n'est pas au portail : notif seulement si c'est le 1er arrivé (nouveau chef)
-      // et que ce n'est pas nous
-      if (sid !== mySessionId && DungeonSystem.atPortal.size === 1 && !DungeonSystem.atPortal.has('me')) {
+      // On est au portail → rafraîchir le modal (il est déjà ouvert)
+      refreshPortalModal();
+    } else if (sid !== mySessionId) {
+      // On n'est PAS au portail et c'est quelqu'un d'autre qui arrive
+      // Montrer la notif seulement pour le 1er arrivé (le chef)
+      if (DungeonSystem.atPortal.size === 1) {
         showPortalNotifForOthers(DungeonSystem.leaderName || name, serverLeader || sid);
       }
     }
