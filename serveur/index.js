@@ -142,12 +142,7 @@ wss.on('connection', (ws) => {
       if (!room) return;
       const pdata = room.players.get(ws);
       if (pdata) { pdata.x = msg.x; pdata.y = msg.y; if (msg.location !== undefined) pdata.location = msg.location; }
-      broadcast(room, 'move', {
-        sessionId: ws.sessionId,
-        x: msg.x, y: msg.y,
-        name: pdata?.name,
-        location: msg.location !== undefined ? msg.location : (pdata?.location || 'overworld'),
-      }, ws);
+      broadcast(room, 'move', { sessionId: ws.sessionId, x: msg.x, y: msg.y, name: pdata?.name, location: msg.location !== undefined ? msg.location : (pdata?.location || 'overworld') }, ws);
     }
 
     // ── HP_UPDATE ────────────────────────────────────
@@ -156,12 +151,7 @@ wss.on('connection', (ws) => {
       if (!room) return;
       const pdata = room.players.get(ws);
       if (pdata) { pdata.hp = msg.hp; pdata.hpMax = msg.hpMax; }
-      broadcast(room, 'hp_update', {
-        sessionId: ws.sessionId,
-        hp: msg.hp, hpMax: msg.hpMax,
-        talentBonuses: msg.talentBonuses || null,
-        talentLevel: msg.talentLevel || 1,
-      }, ws);
+      broadcast(room, 'hp_update', { sessionId: ws.sessionId, hp: msg.hp, hpMax: msg.hpMax, talentBonuses: msg.talentBonuses || null, talentLevel: msg.talentLevel || 1 }, ws);
     }
 
     // ── SKILL ────────────────────────────────────────
@@ -247,12 +237,23 @@ wss.on('connection', (ws) => {
       const room = roomMap.get(ws.roomCode);
       if (!room) return;
       const leaver = room.players.get(ws);
-      // Notifier les autres du départ
       broadcast(room, 'group_leave', {
         leavingSessionId: ws.sessionId,
         leavingName: leaver?.name || 'Joueur',
         targetSessionId: msg.targetSessionId,
       }, ws);
+    }
+
+    else if (type === 'group_leave_self') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const leaver = room.players.get(ws);
+      // Broadcast a tous (y compris l'expediteur pour confirmation)
+      broadcast(room, 'group_leave', {
+        leavingSessionId: ws.sessionId,
+        leavingName: leaver?.name || 'Joueur',
+        targetSessionId: null,
+      });
     }
 
     // ── DUNGEON REQUESTS ─────────────────────────────

@@ -246,8 +246,7 @@ function handleServerMessage(msg) {
       multiState.remotePlayers[msg.sessionId] = { hp: 100, hpMax: 100 };
     }
     const _rmv = multiState.remotePlayers[msg.sessionId];
-    _rmv.x = msg.x;
-    _rmv.y = msg.y;
+    _rmv.x = msg.x; _rmv.y = msg.y;
     if (msg.name) _rmv.name = msg.name;
     if (msg.location !== undefined) _rmv.location = msg.location;
     updateRemotePlayersPanel();
@@ -257,8 +256,7 @@ function handleServerMessage(msg) {
     if (msg.sessionId === multiState.sessionId) return;
     if (multiState.remotePlayers[msg.sessionId]) {
       const _rhp = multiState.remotePlayers[msg.sessionId];
-      _rhp.hp = msg.hp;
-      _rhp.hpMax = msg.hpMax;
+      _rhp.hp = msg.hp; _rhp.hpMax = msg.hpMax;
       if (msg.talentBonuses) _rhp.talentBonuses = msg.talentBonuses;
       if (msg.talentLevel) _rhp.talentLevel = msg.talentLevel;
       updateRemotePlayersPanel();
@@ -344,6 +342,15 @@ function handleServerMessage(msg) {
     addLog(`${msg.acceptorName} a rejoint le groupe!`, 'success');
   }
 
+  else if (type === 'group_leave') {
+    // Un membre a quitte le groupe -> le retirer localement
+    const _leaveIdx = state.group.members.indexOf(msg.leavingSessionId);
+    if (_leaveIdx > -1) state.group.members.splice(_leaveIdx, 1);
+    if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
+    if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
+    addLog(`${msg.leavingName} a quitte le groupe.`, 'normal');
+  }
+
   else if (type === 'dungeon_request') {
     if (typeof handleDungeonRequest === 'function') {
       handleDungeonRequest(msg.fromSessionId, msg.fromName, msg.dungeonType);
@@ -351,19 +358,15 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_accept') {
-    if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
-    state.dungeonAcceptedCount++;
-    const _needed = state.dungeonPendingAccepts || Math.max(1, state.group?.members?.length || 1);
-    addLog(`${msg.acceptorName} accepte! (${state.dungeonAcceptedCount}/${_needed})`, 'success');
-    if (state.dungeonAcceptedCount >= _needed) {
-      state.dungeonAcceptedCount = 0;
-      state.dungeonPendingAccepts = 0;
-      if (typeof showDungeonReadyUI === 'function') showDungeonReadyUI(msg.acceptorName);
+    if (typeof registerDungeonAccept === 'function') {
+      registerDungeonAccept(msg.acceptorSessionId, msg.acceptorName);
     }
   }
 
   else if (type === 'dungeon_decline') {
-    addLog(`❌ ${msg.declineName} refuse l'accès au donjon`, 'normal');
+    if (typeof registerDungeonDecline === 'function') {
+      registerDungeonDecline(msg.declineSessionId, msg.declineName);
+    }
   }
 
   // ────────────────────────────────────────────────────────────
@@ -470,20 +473,9 @@ function setupBroadcasters() {
     wsSend('heal', { amount });
   };
   multiState.broadcastHp = () => {
-    wsSend('hp_update', {
-      hp: state.hp,
-      hpMax: state.hpMax,
-      talentBonuses: state.talentBonuses || null,
-      talentLevel: state.talents ? state.talents.level : 1,
-    });
+    wsSend('hp_update', { hp: state.hp, hpMax: state.hpMax, talentBonuses: state.talentBonuses || null, talentLevel: state.talents ? state.talents.level : 1 });
   };
-  multiState.broadcastLocation = () => {
-    wsSend('move', {
-      x: state.player.gridX,
-      y: state.player.gridY,
-      location: state.player?.location || 'overworld',
-    });
-  };
+  multiState.broadcastLocation = () => { wsSend('move', { x: state.player.gridX, y: state.player.gridY, location: state.player?.location || 'overworld' }); };
   updateMultiIndicator();
 }
 
@@ -551,8 +543,8 @@ function updateRemotePlayersPanel() {
     const hpPct = rp.hpMax ? Math.round((rp.hp / rp.hpMax) * 100) : 100;
     return `<div class="remote-player-card" data-session-id="${sessionId}" data-player-name="${rp.name || 'Allié'}" style="border-color:${rcls ? rcls.color+'44' : '#304050'}; cursor: pointer;">
       <div class="remote-player-name" style="color:${rcls ? rcls.color : '#80c0ff'};">◇ ${rp.name || 'Allié'}</div>
-      <div class="remote-player-class">${rcls ? rcls.name : '—'} ${rp.talentLevel > 1 ? '<span style="color:#c8a96e;font-size:9px;">Niv.' + rp.talentLevel + '</span>' : ''}</div>
-      <div class="remote-player-hp">PV: ${hpPct}%</div>
+      <div class="remote-player-class">${rcls ? rcls.name : '—'}</div>
+      <div class="remote-player-hp">PV: ${hpPct}% · (${rp.x||0},${rp.y||0})</div>
     </div>`;
   }).join('');
 

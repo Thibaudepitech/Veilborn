@@ -817,7 +817,7 @@ function drawGrid() {
     }
   }
 
-  // Remote players — only render if same location as local player
+  // Remote players — filtrer par location (donjon/overworld)
   if (window.multiState) {
     const _myZone = state.player?.location || 'overworld';
     for (const [_pid, rp] of Object.entries(window.multiState.remotePlayers||{})) {

@@ -173,28 +173,14 @@ function enterDungeon() {
   if (dungeonState?.active) return;
   if (bossRoom?.active) return;
 
-  // En groupe: demander accord de tous les membres
+  // En groupe: lancer un vote d'entree. Si tout le monde accepte, showDungeonReadyUI est appele.
   if (window.multiState?.active && state.group?.members.length > 0 && !state.dungeonPartyReady) {
-    const _groupIds = state.group.members.slice();
-    state.dungeonPendingAccepts = _groupIds.length;
-    state.dungeonAcceptedCount = 0;
-
-    _groupIds.forEach(memberId => {
-      const member = window.multiState.remotePlayers[memberId];
-      const name = member ? member.name : ('Joueur-' + String(memberId).slice(0, 4));
-      wsSend('dungeon_request', {
-        fromSessionId: window.multiState.sessionId,
-        fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
-        targetSessionId: memberId,
-        targetName: name,
-        dungeonType: 'DONJON',
-      });
-    });
-
-    addLog("Demande envoyee au groupe...", "normal");
-    return;
+    if (typeof initiateDungeonVote === 'function') {
+      initiateDungeonVote();
+    }
+    return; // on attend les votes
   }
-  // Reinitialiser le flag apres utilisation
+  // Reinitialiser le flag
   state.dungeonPartyReady = false;
 
   addLog('⚿ Le portail vous aspire dans les profondeurs du donjon...', 'action');
