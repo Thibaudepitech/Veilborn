@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VEILBORN — Prototype v5</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════
+     MAIN MENU
+═══════════════════════════════════════ -->
+<div id="main-menu">
+  <div class="menu-bg-art"></div>
+  <div class="menu-rune-border"></div>
+  <div class="menu-corner tl"></div>
+  <div class="menu-corner tr"></div>
+  <div class="menu-corner bl"></div>
+  <div class="menu-corner br"></div>
+  <canvas id="menu-canvas" style="position:absolute;inset:0;pointer-events:none;opacity:0.4;"></canvas>
+
+  <div class="menu-title-wrap">
+    <div class="menu-eyebrow">✦ &nbsp; Chroniques du &nbsp; ✦</div>
+    <div class="menu-title">VEILBORN</div>
+    <div class="menu-subtitle">Le Voile se déchire. Les Fracturés s'éveillent.</div>
+  </div>
+  <div class="menu-divider"></div>
+  <div class="menu-nav">
+    <button class="menu-btn primary" onclick="showClassSelect()"><span class="menu-btn-icon">⚔</span> NOUVELLE PARTIE</button>
+    <button class="menu-btn" onclick="continueGame()" id="btn-continue" style="display:none;"><span class="menu-btn-icon">↩</span> CONTINUER</button>
+    <button class="menu-btn" onclick="showMultiPanel()"><span class="menu-btn-icon">🌐</span> MULTIJOUEUR</button>
+    <button class="menu-btn" onclick="showOptions()"><span class="menu-btn-icon">⚙</span> OPTIONS</button>
+    <button class="menu-btn" onclick="showTutorial()"><span class="menu-btn-icon">📜</span> TUTORIEL</button>
+    <button class="menu-btn" style="opacity:0.5;cursor:not-allowed;"><span class="menu-btn-icon">🏆</span> CLASSEMENT <span style="font-size:8px;">(bientôt)</span></button>
+  </div>
+  <div style="position:absolute;bottom:20px;left:50%;transform:translateX(-50%);font-family:'Cinzel',serif;font-size:8px;letter-spacing:3px;color:#2a1808;text-align:center;">
+    PROTOTYPE v5 &nbsp;·&nbsp; © VEILBORN STUDIOS &nbsp;·&nbsp; TOUS DROITS RÉSERVÉS
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     MULTIJOUEUR PANEL
+═══════════════════════════════════════ -->
+<div id="multi-panel">
+  <div class="cs-title">✦ MULTIJOUEUR P2P ✦</div>
+  <div class="cs-sub">Connexion directe entre navigateurs via WebRTC — aucun serveur requis</div>
+
+  <!-- SERVER CONFIGURATION -->
+  <div class="server-config" style="background:#0a0a0a;border:1px solid #553d2f;border-radius:8px;padding:16px;margin-bottom:20px;font-family:'Courier New',monospace;">
+    <div style="color:#d4af37;font-weight:bold;margin-bottom:8px;font-size:13px;">⚙ CONFIGURATION DU SERVEUR</div>
+    <div style="color:#888;font-size:12px;margin-bottom:12px;">Local: ws://localhost:3000 | Internet: wss://votre-url.com | Ngrok: wss://xxxx-xxxx-xxxx.ngrok.io</div>
+    <input type="text" id="server-url-input" class="multi-input" placeholder="ws://localhost:3000" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:8px;background:#1a1a1a;border:1px solid #553d2f;color:#d4af37;font-family:'Courier New',monospace;font-size:12px;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="cs-btn confirm" id="btn-test-server" onclick="testServerConnection()" style="flex:1;padding:8px;font-size:12px;">🔌 Tester</button>
+      <button class="cs-btn confirm" id="btn-save-server" onclick="saveServerUrl()" style="flex:1;padding:8px;font-size:12px;">💾 Enregistrer</button>
+    </div>
+    <div id="server-status" style="color:#888;font-size:11px;min-height:16px;"></div>
+  </div>
+
+  <div class="multi-layout">
+    <!-- CREATE SESSION -->
+    <div class="multi-card">
+      <div class="multi-card-title">⚔ CRÉER UNE PARTIE</div>
+      <div class="multi-card-sub">Vous êtes l'hôte. Partagez le code avec vos amis.</div>
+      <button class="cs-btn confirm" id="btn-create-session" onclick="createSession()">Créer la session</button>
+      <div id="host-code-section" style="display:none;margin-top:16px;">
+        <div class="multi-label">Votre code de session (partagez-le):</div>
+        <div class="multi-code" id="host-code-display">—</div>
+        <button class="multi-copy-btn" onclick="copySessionCode()">📋 Copier le code</button>
+        <div class="multi-label" style="margin-top:12px;">Joueurs connectés:</div>
+        <div id="connected-peers-list" class="peer-list">En attente...</div>
+        <button class="cs-btn confirm" id="btn-start-multi" style="margin-top:12px;display:none;" onclick="startMultiGame()">▶ Lancer la partie</button>
+      </div>
+    </div>
+
+    <!-- JOIN SESSION -->
+    <div class="multi-card">
+      <div class="multi-card-title">🌐 REJOINDRE UNE PARTIE</div>
+      <div class="multi-card-sub">Entrez le code donné par l'hôte.</div>
+      <input type="text" id="join-code-input" class="multi-input" placeholder="Collez le code ici..." oninput="this.value=this.value.toUpperCase()">
+      <button class="cs-btn confirm" onclick="joinSession()" style="margin-top:8px;">Rejoindre</button>
+      <div id="join-status" class="join-status"></div>
+    </div>
+  </div>
+
+  <div class="multi-info">
+    <div class="multi-info-row">🔒 <strong>P2P chiffré</strong> — connexion directe, aucune donnée sur un serveur</div>
+    <div class="multi-info-row">👥 <strong>2–4 joueurs</strong> — chaque joueur contrôle son propre héros</div>
+    <div class="multi-info-row">🌍 <strong>Même réseau ou internet</strong> — fonctionne partout</div>
+  </div>
+
+  <div class="cs-actions" style="margin-top:20px;">
+    <button class="cs-btn back" onclick="backToMenuFromMulti()">← Retour</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     CLASS SELECT
+═══════════════════════════════════════ -->
+<div id="class-select-panel">
+  <div class="cs-title">✦ CHOISIR VOTRE CLASSE ✦</div>
+  <div class="cs-sub">Chaque classe possède une ressource unique et des mécaniques distinctes</div>
+  <div class="cs-grid" id="cs-grid"></div>
+  <div class="cs-actions">
+    <button class="cs-btn back" onclick="backToMenu()">← Retour</button>
+    <button class="cs-btn confirm" id="cs-confirm" onclick="confirmClass()" disabled>Choisir cette classe →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     OPTIONS
+═══════════════════════════════════════ -->
+<div id="options-panel">
+  <div class="opt-title">✦ OPTIONS ✦</div>
+  <div class="opt-section">
+    <div class="opt-row">Effets visuels<div class="opt-toggle on" id="opt-vfx" onclick="toggleOpt('vfx')"></div></div>
+    <div class="opt-row">Particules<div class="opt-toggle on" id="opt-particles" onclick="toggleOpt('particles')"></div></div>
+    <div class="opt-row">Décor du champ<div class="opt-toggle on" id="opt-deco" onclick="toggleOpt('deco')"></div></div>
+    <div class="opt-row">Son (à venir)<div class="opt-toggle" style="opacity:0.4;"></div></div>
+  </div>
+  <button class="cs-btn back" onclick="closeOptions()">← Fermer</button>
+</div>
+
+<!-- ═══════════════════════════════════════
+     GAME
+═══════════════════════════════════════ -->
+<div id="app" class="hidden">
+  <div id="header">
+    <div class="header-left">
+      <div class="header-rune">✦</div>
+      <h1>VEILBORN</h1>
+      <div class="header-badge">PROTOTYPE v5</div>
+      <!-- Multiplayer indicator -->
+      <div id="multi-indicator" style="display:none;" class="multi-hdr-badge">
+        <span id="multi-indicator-icon">🟢</span>
+        <span id="multi-indicator-text">Solo</span>
+      </div>
+    </div>
+    <div class="header-center">
+      <div class="game-menu-bar">
+        <button class="hdr-btn" onclick="openSkillTree()">📜 Compétences [S]</button>
+        <button class="hdr-btn" onclick="if(typeof openTalentTree==='function')openTalentTree()">✦ Talents [A]</button>
+        <button class="hdr-btn" onclick="toggleStatsPanel()">📊 Statistiques [T]</button>
+        <button class="hdr-btn" onclick="toggleGrid()">🗺 Tactique [G]</button>
+        <button class="hdr-btn" onclick="goToMenu()">↩ Menu</button>
+      </div>
+    </div>
+    <div class="header-right" style="display:flex;align-items:center;gap:10px;">
+      <span id="header-class-name" style="font-family:'Cinzel Decorative',serif;font-size:11px;color:var(--gold);">—</span>
+      <div id="gold-hud" style="display:flex;align-items:center;gap:6px;background:rgba(20,10,3,0.8);border:1px solid rgba(200,160,40,0.4);border-radius:3px;padding:3px 10px;cursor:pointer;" onclick="openInventory()" title="Inventaire [I]">
+        <span style="font-size:12px;">💰</span>
+        <span id="gold-display" style="font-family:'Cinzel',serif;font-size:11px;color:#f1c40f;font-weight:bold;">0 g</span>
+        <span style="font-family:'Cinzel',serif;font-size:9px;color:#6a5030;">| [I]</span>
+      </div>
+      <button onclick="document.getElementById('audio-settings-modal').style.display='flex'" title="Son [M]" style="background:rgba(20,10,3,0.7);border:1px solid rgba(120,80,30,0.35);color:#c8a96e;font-size:13px;padding:3px 8px;cursor:pointer;border-radius:3px;">🔊</button>
+    </div>
+  </div>
+
+  <div id="panel-left">
+    <div class="panel-title"><span class="panel-title-rune">🔍</span> Ennemi ciblé</div>
+    <div id="enemy-inspector">
+      <div id="enemy-inspector-empty" style="font-family:'IM Fell English',serif;font-style:italic;font-size:12px;color:#2a1808;text-align:center;margin-top:30px;line-height:1.8;">
+        ✦<br>Cliquez sur<br>un ennemi<br>pour voir<br>ses stats
+      </div>
+      <div id="enemy-inspector-content" style="display:none;"></div>
+    </div>
+    <!-- Remote players in multiplayer -->
+    <div id="remote-players-panel" style="display:none;margin-top:10px;">
+      <div class="panel-title"><span class="panel-title-rune">👥</span> Alliés</div>
+      <div id="remote-players-list"></div>
+    </div>
+    <!-- Group members -->
+    <div id="group-panel" style="display:none;margin-top:10px;">
+      <div class="panel-title"><span class="panel-title-rune">⚔</span> Groupe</div>
+      <div id="group-players-list"></div>
+    </div>
+  </div>
+
+  <div id="arena">
+    <canvas id="game-canvas"></canvas>
+    <div id="tooltip"></div>
+    <div id="targeting-indicator">⊕ CIBLAGE — Clic gauche · Échap annuler</div>
+    <div class="tactical-badge" id="tactical-badge">⊕ VISION TACTIQUE</div>
+
+    <!-- Active buffs display -->
+    <div id="active-buffs" style="position:absolute;bottom:8px;left:8px;display:flex;gap:6px;flex-wrap:wrap;z-index:50;"></div>
+
+    <!-- Boss HUD -->
+    <div id="boss-hud" style="display:none;position:absolute;top:8px;left:50%;transform:translateX(-50%);z-index:60;min-width:260px;background:rgba(5,2,8,0.92);border:1px solid rgba(155,77,202,0.6);border-radius:4px;padding:8px 14px;font-family:'Cinzel',serif;text-align:center;box-shadow:0 0 20px rgba(155,77,202,0.3);"></div>
+
+    <!-- Skill Tree Modal -->
+    <div id="skill-tree-modal">
+      <div class="tree-header" id="tree-modal-title">ARBRE DE COMPÉTENCES</div>
+      <div class="tree-subtitle" id="tree-modal-subtitle"></div>
+      <div class="tree-instructions">Cliquer sur un skill pour l'équiper · Cliquer sur un skill équipé pour le retirer · <strong>S</strong> pour fermer</div>
+      <div class="tree-layout">
+        <div class="equipped-panel">
+          <div class="equipped-title">✦ Skills équipés</div>
+          <div class="equipped-slot" id="slot-0">
+            <div class="equipped-slot-key">1</div>
+            <div class="equipped-slot-label">Slot principal</div>
+            <div class="equipped-slot-name" id="slot-name-0"><span class="equipped-slot-empty">— vide —</span></div>
+          </div>
+          <div class="equipped-slot" id="slot-1">
+            <div class="equipped-slot-key">2</div>
+            <div class="equipped-slot-label">Slot situationnel</div>
+            <div class="equipped-slot-name" id="slot-name-1"><span class="equipped-slot-empty">— vide —</span></div>
+          </div>
+          <div class="equipped-slot" id="slot-2">
+            <div class="equipped-slot-key">3</div>
+            <div class="equipped-slot-label">Slot signature</div>
+            <div class="equipped-slot-name" id="slot-name-2"><span class="equipped-slot-empty">— vide —</span></div>
+          </div>
+          <div class="divider-gold" style="margin:10px 0;"></div>
+          <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:10px;color:#3a2010;line-height:1.4;">Clic sur un skill → équiper<br>Clic sur un slot → le vider</div>
+        </div>
+        <div class="skills-grid" id="skills-grid"></div>
+      </div>
+      <div class="tree-close" onclick="closeSkillTree()">[ S ] FERMER</div>
+    </div>
+
+    <!-- Talent Tree Modal -->
+    <div id="talent-tree-modal" style="display:none;position:absolute;inset:0;z-index:200;background:rgba(3,1,5,0.97);overflow-y:auto;padding:16px;">
+      <div id="talent-tree-visual-header" style="text-align:center;margin-bottom:10px;">
+        <div id="talent-tree-title" style="font-family:'Cinzel Decorative',serif;font-size:16px;color:#c8a96e;text-align:center;letter-spacing:3px;margin-bottom:4px;"></div>
+        <div id="talent-tree-info" style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:6px;font-family:'Cinzel',serif;font-size:11px;"></div>
+        <div id="talent-skills-info" style="text-align:center;font-family:'IM Fell English',serif;font-style:italic;font-size:10px;color:#6a5030;margin-bottom:10px;"></div>
+      </div>
+      <!-- Visual talent tree SVG connectors + node grid -->
+      <div id="talent-branches" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:12px;max-width:1100px;margin-left:auto;margin-right:auto;"></div>
+      <div id="talent-reset-section"></div>
+      <div style="text-align:center;margin-top:12px;">
+        <button onclick="closeTalentTree()" style="font-family:'Cinzel',serif;font-size:11px;color:#c8a96e;background:rgba(20,10,5,0.9);border:1px solid rgba(200,169,110,0.4);padding:6px 20px;cursor:pointer;letter-spacing:2px;">[ A ] FERMER</button>
+      </div>
+    </div>
+
+    <!-- Stats Panel -->
+    <div id="stats-panel">
+      <div class="stats-panel-title">✦ STATISTIQUES DE COMBAT ✦</div>
+      <div id="stats-content"></div>
+      <div style="text-align:center;margin-top:12px;font-family:'IM Fell English',serif;font-style:italic;font-size:10px;color:#3a2010;">[ T ] pour fermer</div>
+    </div>
+  </div>
+
+  <div id="panel-right">
+    <div class="panel-title"><span class="panel-title-rune">❤</span> État du Héros</div>
+
+    <!-- HP -->
+    <div class="hp-display">
+      <div class="hp-label">Points de Vie</div>
+      <div class="hp-track">
+        <div class="hp-fill" id="hp-fill" style="width:100%">
+          <div class="hp-fill-segments"></div>
+        </div>
+      </div>
+      <div class="hp-numbers">
+        <span class="hp-current" id="hp-current">—</span>
+        <span class="hp-sep">/</span>
+        <span class="hp-max" id="hp-max">—</span>
+      </div>
+      <div class="hp-armor-row"><span class="armor-icon">🛡</span> Armure: <span class="armor-val" id="armor-val">—</span> &nbsp;·&nbsp; Réduc: <span class="armor-val" id="armor-reduc">—</span></div>
+    </div>
+
+    <!-- Shield display -->
+    <div id="shield-display" style="display:none;" class="shield-display">
+      <div class="shield-label">🛡 Bouclier actif</div>
+      <div class="shield-val" id="shield-val">0 charges</div>
+    </div>
+
+    <!-- Resource -->
+    <div class="resource-display" id="res-display">
+      <div class="resource-name" id="res-name">—</div>
+      <div class="resource-val-row">
+        <div class="resource-val" id="res-val">0</div>
+        <div class="resource-max" id="res-max">/ 100</div>
+      </div>
+      <div class="resource-track"><div class="resource-fill" id="res-fill" style="width:0%"></div></div>
+      <div class="threshold-marks" id="res-thresholds"></div>
+      <div class="resource-status" id="res-status"></div>
+    </div>
+
+    <div class="divider-gold"></div>
+
+    <!-- Talent HUD -->
+    <div id="talent-hud" style="margin:4px 0 2px;"></div>
+    <div style="display:flex;gap:4px;margin-bottom:4px;">
+      <button onclick="if(typeof openSkillTree==='function')openSkillTree()" class="hud-mini-btn" title="Arbre de Skills (S)">⚔ Skills</button>
+      <button onclick="if(typeof openTalentTree==='function')openTalentTree()" class="hud-mini-btn talent-btn" title="Arbre de Talents (A)">✦ Talents</button>
+    </div>
+
+    <div class="divider-gold"></div>
+
+    <!-- Stats -->
+    <div>
+      <div class="panel-title"><span class="panel-title-rune">📊</span> Attributs</div>
+      <div class="stat-grid" id="stat-grid"></div>
+    </div>
+    
+    <!-- skill-slots kept hidden for JS compat -->
+    <div id="skill-slots" style="display:none;"></div>
+  </div>
+
+  <div id="bottom-bar">
+    <!-- Skill bar -->
+    <div id="skill-bar">
+      <div id="skill-bar-slots"></div>
+      <div id="skill-bar-hint"><span>S</span> Arbre · <span>A</span> Talents · <span>G</span> Tactique · <span>I</span> Inventaire · <span>F</span> Fuir boss</div>
+    </div>
+    <!-- Log -->
+    <div id="log-zone">
+      <div class="log-title">📜 Journal</div>
+      <div id="log-container"><div class="log-entry recent">Bienvenue dans Veilborn.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     INVENTAIRE MMO-RPG STYLISÉ
+════════════════════════════════════════════════════ -->
+<div id="inventory-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal inv-window">
+    <!-- Header -->
+    <div class="inv-header">
+      <div class="inv-header-left">
+        <span class="inv-header-rune">⚔</span>
+        <span class="inv-title">INVENTAIRE</span>
+        <span class="inv-header-rune">⚔</span>
+      </div>
+      <div class="inv-header-right">
+        <div class="inv-gold-pill">💰 <span id="inv-gold">0</span> <span class="inv-gold-unit">or</span></div>
+        <div class="inv-count-pill">📦 <span id="inv-count">0/20</span></div>
+        <button class="vb-close-btn" onclick="closeInventory()" title="[I]">✕</button>
+      </div>
+    </div>
+    <div class="inv-divider-fancy"></div>
+
+    <div class="inv-body">
+      <!-- Colonne gauche: Personnage + Équipements -->
+      <div class="inv-left-col">
+        <div class="inv-section-label">✦ ÉQUIPEMENT PORTÉ</div>
+        <div class="inv-character-layout">
+          <!-- Silhouette personnage -->
+          <div class="inv-char-silhouette">
+            <div class="inv-char-sprite" id="inv-char-sprite">
+              <span style="font-size:36px;" id="inv-char-emoji">⚔</span>
+            </div>
+            <!-- Stats rapides -->
+            <div class="inv-char-stats" id="inv-char-stats"></div>
+          </div>
+          <!-- Slots d'équipement positionnés autour -->
+          <div class="inv-equipment-slots">
+            <div class="inv-eq-row">
+              <div class="inv-eq-slot" id="inv-slot-weapon" data-slot="weapon" onclick="unequipItem('weapon')" title="Arme (clic pour retirer)">
+                <div class="inv-eq-slot-icon">⚔</div>
+                <div class="inv-eq-slot-label">ARME</div>
+                <div class="inv-eq-slot-content" id="inv-eq-weapon"></div>
+              </div>
+              <div class="inv-eq-slot" id="inv-slot-armor" data-slot="armor" onclick="unequipItem('armor')" title="Armure (clic pour retirer)">
+                <div class="inv-eq-slot-icon">🛡</div>
+                <div class="inv-eq-slot-label">ARMURE</div>
+                <div class="inv-eq-slot-content" id="inv-eq-armor"></div>
+              </div>
+            </div>
+            <div class="inv-eq-row">
+              <div class="inv-eq-slot" id="inv-slot-cape" data-slot="cape" onclick="unequipItem('cape')" title="Cape (clic pour retirer)">
+                <div class="inv-eq-slot-icon">🧣</div>
+                <div class="inv-eq-slot-label">CAPE</div>
+                <div class="inv-eq-slot-content" id="inv-eq-cape"></div>
+              </div>
+              <div class="inv-eq-slot" id="inv-slot-amulet" data-slot="amulet" onclick="unequipItem('amulet')" title="Amulette (clic pour retirer)">
+                <div class="inv-eq-slot-icon">💠</div>
+                <div class="inv-eq-slot-label">AMULETTE</div>
+                <div class="inv-eq-slot-content" id="inv-eq-amulet"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filtres de rareté -->
+        <div class="inv-section-label" style="margin-top:10px;">✦ FILTRES</div>
+        <div class="inv-filter-row">
+          <button class="inv-filter-btn active" data-filter="all" onclick="setInvFilter('all')">Tout</button>
+          <button class="inv-filter-btn" data-filter="weapon" onclick="setInvFilter('weapon')">Armes</button>
+          <button class="inv-filter-btn" data-filter="armor" onclick="setInvFilter('armor')">Armures</button>
+          <button class="inv-filter-btn" data-filter="cape" onclick="setInvFilter('cape')">Capes</button>
+          <button class="inv-filter-btn" data-filter="amulet" onclick="setInvFilter('amulet')">Amulettes</button>
+        </div>
+        <div class="inv-filter-row" style="margin-top:4px;">
+          <button class="inv-filter-btn rarity-common" data-rfilter="all" onclick="setInvRarFilter('all')">Tous</button>
+          <button class="inv-filter-btn rarity-uncommon" data-rfilter="uncommon" onclick="setInvRarFilter('uncommon')">Inhabituels</button>
+          <button class="inv-filter-btn rarity-rare" data-rfilter="rare" onclick="setInvRarFilter('rare')">Rares</button>
+          <button class="inv-filter-btn rarity-epic" data-rfilter="epic" onclick="setInvRarFilter('epic')">Épiques</button>
+        </div>
+      </div>
+
+      <!-- Colonne droite: Grille d'items -->
+      <div class="inv-right-col">
+        <div class="inv-section-label">✦ SAC À DOS</div>
+        <div class="inv-bag-grid" id="inv-bag"></div>
+        <!-- Tooltip item (apparaît au hover) -->
+        <div class="inv-item-tooltip" id="inv-tooltip" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="inv-footer">
+      <button class="inv-footer-btn" onclick="closeInventory();openMerchant()">🏪 Marchand</button>
+      <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:10px;color:#3a2010;">
+        Clic = Équiper · Clic droit = Vendre · [ I ] Fermer
+      </div>
+      <button class="inv-footer-btn" onclick="sellAllCommon()">🗑 Vendre communs</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     MARCHAND AMÉLIORÉ
+════════════════════════════════════════════════════ -->
+<div id="merchant-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal merchant-window">
+    <div class="inv-header">
+      <div class="inv-header-left">
+        <span style="font-size:18px;">🏪</span>
+        <span class="inv-title">MARCHAND DE LA TAVERNE</span>
+      </div>
+      <div class="inv-header-right">
+        <div class="inv-gold-pill">💰 <span id="merchant-gold">0</span> or</div>
+        <button class="vb-close-btn" onclick="closeMerchant()">✕</button>
+      </div>
+    </div>
+    <div class="inv-divider-fancy"></div>
+    <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:11px;color:#6a5030;text-align:center;padding:6px 0 10px;">
+      "Bienvenue, aventurier. Mes marchandises sont de premier choix..."
+    </div>
+    <div id="merchant-items" class="merchant-grid"></div>
+    <div class="inv-footer">
+      <button class="inv-footer-btn" onclick="closeMerchant();openInventory()">📦 Mon Inventaire</button>
+      <button class="inv-footer-btn" onclick="generateMerchantStock();refreshMerchantUI()">🔄 Actualiser</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     CHAT EN LIGNE
+════════════════════════════════════════════════════ -->
+<div id="chat-modal" class="chat-modal-container" style="display:none;">
+  <div class="chat-window">
+    <div class="chat-header">
+      <span style="font-family:'Cinzel Decorative',serif;font-size:11px;color:#c8a96e;letter-spacing:2px;">💬 CHAT</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span style="font-size:9px;color:#6a5030;font-family:'Cinzel',serif;" id="chat-online-count"></span>
+        <button class="vb-close-btn" style="font-size:10px;padding:2px 7px;" onclick="closeChat()">✕</button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div id="chat-tabs" class="chat-tabs-row"></div>
+    <!-- Messages -->
+    <div id="chat-messages" class="chat-messages-area"></div>
+    <!-- Liste joueurs -->
+    <div class="chat-players-section">
+      <div style="font-size:9px;color:#6a5030;font-family:'Cinzel',serif;letter-spacing:1px;padding:4px 8px 2px;">JOUEURS EN LIGNE</div>
+      <div id="chat-player-list" class="chat-player-list"></div>
+    </div>
+    <!-- Input -->
+    <div class="chat-input-row">
+      <input id="chat-input" class="chat-input" type="text" placeholder="Message général... ( /help )" onkeydown="chatInputKeydown(event)" maxlength="200"/>
+      <button class="chat-send-btn" onclick="sendChatMessage()">▶</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chat toggle button (floating) -->
+<div id="chat-toggle-btn" class="chat-toggle-btn" onclick="toggleChat()" title="Chat [ C ]" style="display:none;">
+  💬
+  <div id="chat-badge" class="chat-badge" style="display:none;"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     TRADE (Échange)
+════════════════════════════════════════════════════ -->
+<div id="trade-request-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal" style="max-width:340px;text-align:center;padding:20px;">
+    <div style="font-size:22px;margin-bottom:8px;">⇄</div>
+    <div style="font-family:'Cinzel Decorative',serif;font-size:13px;color:#c8a96e;margin-bottom:6px;">DEMANDE D'ÉCHANGE</div>
+    <div style="font-family:'IM Fell English',serif;font-style:italic;font-size:12px;color:#8a7050;margin-bottom:16px;">
+      <span id="trade-req-name" style="color:#c8a96e;"></span> souhaite échanger avec vous.
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center;">
+      <button class="inv-footer-btn" style="background:rgba(39,174,96,0.2);border-color:rgba(39,174,96,0.5);color:#27ae60;" onclick="acceptTradeRequest()">✓ Accepter</button>
+      <button class="inv-footer-btn" style="background:rgba(200,60,30,0.15);border-color:rgba(200,60,30,0.4);color:#e74c3c;" onclick="declineTradeRequest()">✕ Refuser</button>
+    </div>
+  </div>
+</div>
+
+<div id="trade-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal trade-window">
+    <div class="inv-header">
+      <div class="inv-header-left">
+        <span style="font-size:16px;">⇄</span>
+        <span class="inv-title">ÉCHANGE AVEC <span id="trade-target-name" style="color:#9b4dca;">—</span></span>
+      </div>
+      <button class="vb-close-btn" onclick="cancelTrade()">✕</button>
+    </div>
+    <div class="inv-divider-fancy"></div>
+    <div class="trade-layout">
+      <!-- Mon offre -->
+      <div class="trade-side">
+        <div class="trade-side-label">VOTRE OFFRE</div>
+        <div class="inv-section-label" style="font-size:8px;margin-bottom:4px;">ITEMS (max 5)</div>
+        <div id="trade-my-items" class="trade-items-area"></div>
+        <div style="margin-top:8px;">
+          <div class="inv-section-label" style="font-size:8px;margin-bottom:4px;">OR <span id="trade-max-gold" style="color:#6a5030;"></span></div>
+          <input id="trade-my-gold" type="number" min="0" class="trade-gold-input" placeholder="0" oninput="setTradeGold(this.value)"/>
+        </div>
+        <div class="inv-section-label" style="font-size:8px;margin:8px 0 4px;">DEPUIS INVENTAIRE</div>
+        <div id="trade-inventory-items" class="trade-inv-scroll"></div>
+      </div>
+      <!-- Flèche -->
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 10px;">
+        <div style="font-size:22px;color:#6a5030;">⇄</div>
+        <div id="trade-their-status" style="font-size:10px;color:#6a5030;font-family:'Cinzel',serif;text-align:center;">En attente...</div>
+      </div>
+      <!-- Leur offre -->
+      <div class="trade-side">
+        <div class="trade-side-label" style="color:#9b4dca;">LEUR OFFRE</div>
+        <div class="inv-section-label" style="font-size:8px;margin-bottom:4px;">ITEMS</div>
+        <div id="trade-their-items" class="trade-items-area"></div>
+        <div style="margin-top:8px;">
+          <div class="inv-section-label" style="font-size:8px;margin-bottom:4px;">OR</div>
+          <div id="trade-their-gold" style="font-family:'Cinzel',serif;font-size:13px;color:#f1c40f;padding:6px;">0 g</div>
+        </div>
+      </div>
+    </div>
+    <div class="inv-footer">
+      <button id="trade-confirm-btn" class="inv-footer-btn" style="background:rgba(39,174,96,0.15);border-color:rgba(39,174,96,0.5);color:#27ae60;" onclick="confirmTrade()">✓ Confirmer l'échange</button>
+      <button class="inv-footer-btn" style="background:rgba(200,60,30,0.1);border-color:rgba(200,60,30,0.3);color:#e74c3c;" onclick="cancelTrade()">✕ Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     SETTINGS AUDIO
+════════════════════════════════════════════════════ -->
+<div id="audio-settings-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal" style="max-width:360px;">
+    <div class="inv-header">
+      <div class="inv-header-left"><span style="font-size:16px;">🔊</span><span class="inv-title">PARAMÈTRES AUDIO</span></div>
+      <button class="vb-close-btn" onclick="document.getElementById('audio-settings-modal').style.display='none'">✕</button>
+    </div>
+    <div class="inv-divider-fancy"></div>
+    <div style="padding:12px 16px;display:flex;flex-direction:column;gap:12px;">
+      <button id="audio-toggle" class="inv-footer-btn" onclick="AudioEngine.toggleEnabled();this.textContent=AudioEngine.settings.enabled?'🔊 Son activé':'🔇 Son désactivé'" style="width:100%;justify-content:center;">🔊 Son activé</button>
+      <div class="audio-slider-row">
+        <label class="audio-label">Volume global</label>
+        <input id="audio-master" type="range" min="0" max="1" step="0.05" class="audio-slider" oninput="AudioEngine.setMasterVol(+this.value);document.getElementById('audio-master-val').textContent=Math.round(+this.value*100)+'%'"/>
+        <span id="audio-master-val" class="audio-val">80%</span>
+      </div>
+      <div class="audio-slider-row">
+        <label class="audio-label">Musique</label>
+        <input id="audio-music" type="range" min="0" max="1" step="0.05" class="audio-slider" oninput="AudioEngine.setMusicVol(+this.value);document.getElementById('audio-music-val').textContent=Math.round(+this.value*100)+'%'"/>
+        <span id="audio-music-val" class="audio-val">35%</span>
+      </div>
+      <div class="audio-slider-row">
+        <label class="audio-label">Effets sonores</label>
+        <input id="audio-sfx" type="range" min="0" max="1" step="0.05" class="audio-slider" oninput="AudioEngine.setSfxVol(+this.value);document.getElementById('audio-sfx-val').textContent=Math.round(+this.value*100)+'%'"/>
+        <span id="audio-sfx-val" class="audio-val">70%</span>
+      </div>
+      <div class="audio-slider-row">
+        <label class="audio-label">Ambiance</label>
+        <input id="audio-ambient" type="range" min="0" max="1" step="0.05" class="audio-slider" oninput="AudioEngine.setAmbientVol(+this.value);document.getElementById('audio-ambient-val').textContent=Math.round(+this.value*100)+'%'"/>
+        <span id="audio-ambient-val" class="audio-val">40%</span>
+      </div>
+      <div style="text-align:center;">
+        <button class="inv-footer-btn" onclick="AudioEngine.play.lootPickup();AudioEngine.play.castSpell()">▶ Tester</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     RUN BRIEFING (Phase 2)
+════════════════════════════════════════════════════ -->
+<div id="run-briefing-modal" class="vb-modal-overlay" style="display:none;">
+  <div class="vb-modal" style="max-width:480px;">
+    <div class="inv-header">
+      <div class="inv-header-left"><span style="font-size:16px;">⚿</span><span class="inv-title">NOUVEAU RUN — DONJON ALÉATOIRE</span></div>
+    </div>
+    <div class="inv-divider-fancy"></div>
+    <div style="padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div class="inv-section-label" style="margin-bottom:8px;">PARCOURS DES SALLES</div>
+        <div id="run-room-list"></div>
+      </div>
+      <div>
+        <div class="inv-section-label" style="margin-bottom:8px;">MODIFICATEURS ACTIFS</div>
+        <div id="run-modifiers-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+      </div>
+    </div>
+    <div style="text-align:center;font-family:'Cinzel',serif;font-size:9px;color:#3a2010;padding-bottom:8px;" id="run-seed"></div>
+    <div class="inv-footer">
+      <button id="run-start-btn" class="inv-footer-btn" style="background:rgba(155,77,202,0.2);border-color:rgba(155,77,202,0.6);color:#c8a96e;font-size:12px;width:100%;justify-content:center;padding:10px;">
+        ⚿ ENTRER DANS LE DONJON
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="groups.js"></script>
+<script src="spell.js"></script>
+<script src="ui.js"></script>
+<script src="talent.js"></script>
+<script src="boss.js"></script>
+<script src="dungeon.js"></script>
+<script src="dungeon_random.js"></script>
+<script src="multiplayer.js"></script>
+<script src="loot.js"></script>
+<script src="audio.js"></script>
+<script src="chat.js"></script>
+<script src="trade.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
