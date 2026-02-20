@@ -219,6 +219,7 @@ function handleServerMessage(msg) {
       classId: msg.classId,
       hp: msg.hp ?? 100, hpMax: msg.hpMax ?? 100,
       name: msg.name || `Joueur-${msg.sessionId.slice(0,4)}`,
+      location: msg.location || 'overworld',
     };
     updateRemotePlayersPanel();
     updateConnectedPeersList();
@@ -273,7 +274,7 @@ function handleServerMessage(msg) {
       multiState.remotePlayers[msg.sessionId] = { x: 7, y: 7 };
     }
     Object.assign(multiState.remotePlayers[msg.sessionId], {
-      classId: msg.classId, hp: msg.hp, hpMax: msg.hpMax, name: msg.name,
+      classId: msg.classId, hp: msg.hp, hpMax: msg.hpMax, name: msg.name, location: msg.location || 'overworld',
     });
     updateRemotePlayersPanel();
   }
@@ -329,6 +330,10 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'group_accept') {
+    // Ajouter l'accepteur au groupe du demandeur
+    if (!state.group.members.includes(msg.acceptorSessionId)) {
+      state.group.members.push(msg.acceptorSessionId);
+    }
     if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
     addLog(`✅ ${msg.acceptorName} a rejoint le groupe!`, 'success');
   }
@@ -440,7 +445,7 @@ function setupBroadcasters() {
   const _cb = document.getElementById('chat-toggle-btn');
   if (_cb) _cb.style.display = 'flex';
   multiState.broadcastClass = (info) => {
-    wsSend('class_change', { classId: info.classId, hp: info.hp, hpMax: info.hpMax, x: info.x, y: info.y, name: info.name });
+    wsSend('class_change', { classId: info.classId, hp: info.hp, hpMax: info.hpMax, x: info.x, y: info.y, name: info.name, location: state.player?.location || 'overworld' });
   };
   multiState.broadcastSkill = (info) => {
     wsSend('skill', { skillId: info.skillId, targetGx: info.targetGx, targetGy: info.targetGy, classId: info.classId });
@@ -506,8 +511,17 @@ function updateRemotePlayersPanel() {
   if (!panel || !list) return;
   const players = Object.entries(multiState.remotePlayers);
   if (players.length === 0) { panel.style.display = 'none'; return; }
+
+  // Filtrer les joueurs pour afficher seulement ceux au même endroit
+  const myLocation = state.player?.location || 'overworld';
+  const filteredPlayers = players.filter(([sessionId, rp]) => {
+    return (rp.location || 'overworld') === myLocation;
+  });
+
+  if (filteredPlayers.length === 0) { panel.style.display = 'none'; return; }
+
   panel.style.display = 'block';
-  list.innerHTML = players.map(([sessionId, rp]) => {
+  list.innerHTML = filteredPlayers.map(([sessionId, rp]) => {
     const rcls = rp.classId ? CLASSES[rp.classId] : null;
     const hpPct = rp.hpMax ? Math.round((rp.hp / rp.hpMax) * 100) : 100;
     return `<div class="remote-player-card" data-session-id="${sessionId}" data-player-name="${rp.name || 'Allié'}" style="border-color:${rcls ? rcls.color+'44' : '#304050'}; cursor: pointer;">
@@ -516,7 +530,7 @@ function updateRemotePlayersPanel() {
       <div class="remote-player-hp">PV: ${hpPct}% · (${rp.x||0},${rp.y||0})</div>
     </div>`;
   }).join('');
-  
+
   // Ajouter event listeners à tous les joueurs
   document.querySelectorAll('.remote-player-card').forEach(card => {
     card.addEventListener('click', (e) => {
@@ -531,7 +545,7 @@ function updateRemotePlayersPanel() {
       showPlayerContextMenu(sessionId, playerName, e.clientX, e.clientY);
     });
   });
-  
+
   // Mettre à jour le panneau du groupe
   if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
 }

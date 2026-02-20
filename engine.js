@@ -6,7 +6,7 @@ var dungeonState = null;
 
 let state = {
   selectedClass: null,
-  player: { gridX:7, gridY:7, px:0, py:0, fromPx:0, fromPy:0, toPx:0, toPy:0, t:1, stepDuration:280, stepStart:0, moving:false, path:[], bobPhase:0 },
+  player: { gridX:7, gridY:7, px:0, py:0, fromPx:0, fromPy:0, toPx:0, toPy:0, t:1, stepDuration:280, stepStart:0, moving:false, path:[], bobPhase:0, location:'overworld' },
   resource: { val:0, max:100 },
   hp:100, hpMax:100, armor:0, baseArmor:0,
   buffs: {

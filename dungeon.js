@@ -177,7 +177,7 @@ function enterDungeon() {
   if (window.multiState?.active && state.group?.members.length > 0) {
     // On est dans un groupe, demander l'accord des autres
     const groupMemberIds = state.group.members;
-    
+
     // Envoyer une demande à chaque membre du groupe
     groupMemberIds.forEach(memberId => {
       const member = window.multiState.remotePlayers[memberId];
@@ -185,12 +185,15 @@ function enterDungeon() {
         requestDungeonAccess(memberId, member.name, 'DONJON');
       }
     });
-    
+
     return;
   }
 
   addLog('⚿ Le portail vous aspire dans les profondeurs du donjon...', 'action');
   spawnFloater(state.player.gridX, state.player.gridY, '⚿ DONJON', '#9b4dca', 16);
+
+  // Marquer le joueur comme étant dans le donjon
+  state.player.location = 'dungeon';
 
   dungeonState = {
     active: true,
@@ -626,6 +629,9 @@ function exitDungeon(victory) {
   state.player.moving = false;
   state.player.t = 1;
   initPlayerPixelPos();
+
+  // Marquer le joueur comme étant dans l'overworld
+  state.player.location = 'overworld';
 
   state.highlight = { type:null, cells:[] };
   // FIX: annuler le ciblage si actif lors de la sortie du donjon

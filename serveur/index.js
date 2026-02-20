@@ -178,12 +178,13 @@ wss.on('connection', (ws) => {
       const room = roomMap.get(ws.roomCode);
       if (!room) return;
       const pdata = room.players.get(ws);
-      if (pdata) { pdata.classId = msg.classId; pdata.hp = msg.hp; pdata.hpMax = msg.hpMax; }
+      if (pdata) { pdata.classId = msg.classId; pdata.hp = msg.hp; pdata.hpMax = msg.hpMax; pdata.location = msg.location; }
       broadcast(room, 'class_change', {
         sessionId: ws.sessionId,
         classId: msg.classId,
         hp: msg.hp, hpMax: msg.hpMax,
         x: msg.x, y: msg.y, name: msg.name,
+        location: msg.location,
       }, ws);
     }
 
@@ -330,8 +331,8 @@ wss.on('connection', (ws) => {
       for (const [targetWs, targetData] of room.players) {
         if (targetData.sessionId === msg.targetId) {
           send(targetWs, 'trade_accept', {
-            fromSessionId: ws.sessionId,
-            fromName: acceptor?.name || 'Joueur',
+            sessionId: ws.sessionId,
+            name: acceptor?.name || 'Joueur',
             targetId: msg.targetId,
           });
           return;
