@@ -248,6 +248,7 @@ function handleServerMessage(msg) {
     multiState.remotePlayers[msg.sessionId].x = msg.x;
     multiState.remotePlayers[msg.sessionId].y = msg.y;
     if (msg.name) multiState.remotePlayers[msg.sessionId].name = msg.name;
+    if (msg.location) multiState.remotePlayers[msg.sessionId].location = msg.location;
     updateRemotePlayersPanel();
   }
 
@@ -330,11 +331,12 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'group_accept') {
-    // Ajouter l'accepteur au groupe du demandeur
+    // L'accepteur a rejoint notre groupe → l'ajouter à notre liste locale
     if (!state.group.members.includes(msg.acceptorSessionId)) {
       state.group.members.push(msg.acceptorSessionId);
     }
     if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
+    if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
     addLog(`✅ ${msg.acceptorName} a rejoint le groupe!`, 'success');
   }
 
@@ -345,25 +347,22 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_accept') {
-    // Un membre du groupe a accepté d'aller au donjon ensemble
-    addLog(`✅ ${msg.acceptorName} accepte d'aller au donjon!`, 'success');
+    // Un membre du groupe a accepté d'entrer au donjon
+    addLog(`✅ ${msg.acceptorName} accepte d'entrer au donjon!`, 'success');
 
-    // Compter les acceptations
     if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
     state.dungeonAcceptedCount++;
-
-    // Le nombre de membres à attendre = ceux à qui on a envoyé la demande
     const needed = state.dungeonPendingAccepts || (state.group?.members?.length || 1);
 
     if (state.dungeonAcceptedCount >= needed) {
-      // Tout le monde a accepté → afficher le bouton d'entrée
+      // Tout le monde a accepté → afficher le bouton
       state.dungeonAcceptedCount = 0;
       state.dungeonPendingAccepts = 0;
       if (typeof showDungeonReadyUI === 'function') {
         showDungeonReadyUI(msg.acceptorName);
       }
     } else {
-      addLog(`⏳ En attente des autres membres... (${state.dungeonAcceptedCount}/${needed})`, 'normal');
+      addLog(`⏳ (${state.dungeonAcceptedCount}/${needed}) membres prêts...`, 'normal');
     }
   }
 
@@ -469,7 +468,7 @@ function setupBroadcasters() {
     wsSend('skill', { skillId: info.skillId, targetGx: info.targetGx, targetGy: info.targetGy, classId: info.classId });
   };
   multiState.broadcastMove = (x, y) => {
-    wsSend('move', { x, y });
+    wsSend('move', { x, y, location: state.player?.location || 'overworld' });
   };
   multiState.broadcastHeal = (amount) => {
     wsSend('heal', { amount });

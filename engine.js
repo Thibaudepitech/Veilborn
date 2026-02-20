@@ -817,9 +817,11 @@ function drawGrid() {
     }
   }
 
-  // Remote players
+  // Remote players — only render those in the same location as local player
   if (window.multiState) {
+    const myLoc = state.player?.location || 'overworld';
     for (const [pid, rp] of Object.entries(window.multiState.remotePlayers||{})) {
+      if ((rp.location || 'overworld') !== myLoc) continue;
       const iso=gridToIso(rp.x||7,rp.y||7);
       const rcx=iso.x, rcy=iso.y+CELL_H/2;
       const rcls = rp.classId ? CLASSES[rp.classId] : null;

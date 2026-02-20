@@ -173,17 +173,12 @@ function enterDungeon() {
   if (dungeonState?.active) return;
   if (bossRoom?.active) return;
 
-  // Vérifier si on est en multijoueur et dans un groupe
-  // Si dungeonPartyReady est true, on entre directement (tous ont accepté)
+  // En groupe sans le flag ready → envoyer les invitations et attendre
   if (window.multiState?.active && state.group?.members.length > 0 && !state.dungeonPartyReady) {
-    // On est dans un groupe, demander l'accord des autres
     const groupMemberIds = state.group.members;
-
-    // Initialiser le compteur d'acceptations en attente
     state.dungeonPendingAccepts = groupMemberIds.length;
     state.dungeonAcceptedCount = 0;
 
-    // Envoyer une demande à chaque membre du groupe
     groupMemberIds.forEach(memberId => {
       const member = window.multiState.remotePlayers[memberId];
       if (member) {
@@ -191,10 +186,11 @@ function enterDungeon() {
       }
     });
 
+    addLog('⏳ En attente de l'accord du groupe...', 'normal');
     return;
   }
 
-  // Réinitialiser le flag
+  // Réinitialiser le flag pour la prochaine fois
   state.dungeonPartyReady = false;
 
   addLog('⚿ Le portail vous aspire dans les profondeurs du donjon...', 'action');

@@ -141,11 +141,12 @@ wss.on('connection', (ws) => {
       const room = roomMap.get(ws.roomCode);
       if (!room) return;
       const pdata = room.players.get(ws);
-      if (pdata) { pdata.x = msg.x; pdata.y = msg.y; }
+      if (pdata) { pdata.x = msg.x; pdata.y = msg.y; if (msg.location) pdata.location = msg.location; }
       broadcast(room, 'move', {
         sessionId: ws.sessionId,
         x: msg.x, y: msg.y,
         name: pdata?.name,
+        location: msg.location || pdata?.location || 'overworld',
       }, ws);
     }
 

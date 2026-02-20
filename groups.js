@@ -18,12 +18,12 @@ function inviteToGroup(targetSessionId, targetName) {
 function acceptGroupInvite(fromSessionId, fromName) {
   if (!window.multiState?.active) return;
   
-  // Ajouter au groupe
+  // Ajouter le leader à MON groupe local
   if (!state.group.members.includes(fromSessionId)) {
     state.group.members.push(fromSessionId);
   }
   
-  // Notifier le leader
+  // Notifier le leader que j'ai accepté
   wsSend('group_accept', {
     fromSessionId,
     acceptorSessionId: window.multiState.sessionId,
@@ -32,6 +32,10 @@ function acceptGroupInvite(fromSessionId, fromName) {
   
   clearNotification('group_invite_' + fromSessionId);
   addLog(`✅ Vous avez rejoint le groupe de ${fromName}`, 'success');
+  
+  // Mettre à jour l'affichage immédiatement
+  if (typeof renderGroupPlayers === 'function') renderGroupPlayers();
+  if (typeof updateRemotePlayersPanel === 'function') updateRemotePlayersPanel();
 }
 
 function declineGroupInvite(fromSessionId, fromName) {
@@ -42,12 +46,6 @@ function declineGroupInvite(fromSessionId, fromName) {
 // ─── GESTION DES DEMANDES DE DONJON ──────────────────────────
 function requestDungeonAccess(targetSessionId, targetName, dungeonType) {
   if (!window.multiState?.active) return;
-  
-  // Vérifier que les deux sont dans le même groupe
-  if (!state.group.members.includes(targetSessionId)) {
-    addLog('❌ Vous n\'êtes pas dans le même groupe!', 'error');
-    return;
-  }
   
   wsSend('dungeon_request', {
     fromSessionId: window.multiState.sessionId,
@@ -379,7 +377,7 @@ function showDungeonReadyUI(acceptorName) {
     };
     btn.onclick = () => {
       btn.remove();
-      // Marquer que le groupe est prêt → enterDungeon() n'enverra plus de requêtes
+      // Marquer le groupe comme prêt → enterDungeon n'enverra plus de requêtes
       state.dungeonPartyReady = true;
       if (typeof enterDungeon === 'function') {
         enterDungeon();
