@@ -52,10 +52,14 @@ function generateName() {
 }
 
 function getMyName() {
-  const input = document.getElementById('multi-name-input');
-  if (input && input.value.trim()) return input.value.trim();
+  // Priorité : valeur sauvegardée (persiste après fermeture du panel multi)
   if (window._myPlayerName) return window._myPlayerName;
-  return generateName();
+  const input = document.getElementById('multi-name-input');
+  if (input && input.value.trim()) {
+    window._myPlayerName = input.value.trim(); // sauvegarder
+    return window._myPlayerName;
+  }
+  return 'Joueur';
 }
 
 // ─── MINI GRILLE DE CLASSES POUR LE PANEL MULTI ──────
@@ -101,7 +105,7 @@ function initMultiClassGrid() {
 
 function updateMultiPreview() {
   const input = document.getElementById('multi-name-input');
-  if (input) window._myPlayerName = input.value.trim() || generateName();
+  if (input && input.value.trim()) window._myPlayerName = input.value.trim();
 }
 
 function createSessionWithIdentity() {
