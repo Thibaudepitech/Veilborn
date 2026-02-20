@@ -186,6 +186,7 @@ function executeTrade() {
 // ─────────────────────────────────────────
 function broadcastTradeOffer() {
   if (!window.multiState?.active) return;
+  if (!TradeSystem.targetId) return;
   const itemObjects = (TradeSystem.myOffer.items || []).map(id =>
     state.economy?.inventory?.find(i => i.id === id)
   ).filter(Boolean);
@@ -214,14 +215,18 @@ function onTradeMessage(msg) {
   }
 
   else if (type === 'trade_accept') {
-    if (msg.sessionId !== TradeSystem.targetId) return;
-    startTrade(msg.sessionId, ChatSystem.playerNames[msg.sessionId] || msg.sessionId.slice(0,6));
+    // Le serveur retourne fromSessionId = celui qui a accepté (l'autre joueur)
+    const senderId = msg.sessionId;
+    if (!senderId) return;
+    const playerName = (window.multiState?.remotePlayers?.[senderId]?.name)
+      || (typeof ChatSystem !== 'undefined' && ChatSystem.playerNames?.[senderId])
+      || senderId.slice(0, 6);
+    startTrade(senderId, playerName);
   }
 
   else if (type === 'trade_decline') {
-    if (msg.sessionId !== TradeSystem.targetId) return;
     closeTrade();
-    if (typeof addLog === 'function') addLog(`${TradeSystem.targetName} a refusé l'échange.`, 'normal');
+    if (typeof addLog === 'function') addLog(`L'autre joueur a refusé l'échange.`, 'normal');
   }
 
   else if (type === 'trade_offer') {
@@ -246,8 +251,9 @@ function onTradeMessage(msg) {
 
   else if (type === 'trade_cancel') {
     if (!TradeSystem.active) return;
+    const tName = TradeSystem.targetName || 'L\'autre joueur';
     closeTrade();
-    if (typeof addLog === 'function') addLog(`${TradeSystem.targetName} a annulé l'échange.`, 'normal');
+    if (typeof addLog === 'function') addLog(`${tName} a annulé l'échange.`, 'normal');
   }
 }
 

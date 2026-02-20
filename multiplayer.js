@@ -345,8 +345,26 @@ function handleServerMessage(msg) {
   }
 
   else if (type === 'dungeon_accept') {
-    // L'autre joueur a accepté d'aller au donjon ensemble
-    addLog(`✅ ${msg.acceptorName} vous suit au donjon!`, 'success');
+    // Un membre du groupe a accepté d'aller au donjon ensemble
+    addLog(`✅ ${msg.acceptorName} accepte d'aller au donjon!`, 'success');
+
+    // Compter les acceptations
+    if (!state.dungeonAcceptedCount) state.dungeonAcceptedCount = 0;
+    state.dungeonAcceptedCount++;
+
+    // Le nombre de membres à attendre = ceux à qui on a envoyé la demande
+    const needed = state.dungeonPendingAccepts || (state.group?.members?.length || 1);
+
+    if (state.dungeonAcceptedCount >= needed) {
+      // Tout le monde a accepté → afficher le bouton d'entrée
+      state.dungeonAcceptedCount = 0;
+      state.dungeonPendingAccepts = 0;
+      if (typeof showDungeonReadyUI === 'function') {
+        showDungeonReadyUI(msg.acceptorName);
+      }
+    } else {
+      addLog(`⏳ En attente des autres membres... (${state.dungeonAcceptedCount}/${needed})`, 'normal');
+    }
   }
 
   else if (type === 'dungeon_decline') {

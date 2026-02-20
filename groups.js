@@ -116,8 +116,14 @@ function showDungeonRequestNotification(fromSessionId, fromName, dungeonType) {
 
 function acceptDungeonRequest(fromSessionId, fromName) {
   clearNotification('dungeon_req_' + fromSessionId);
-  
-  // Entrer dans le donjon et notifier l'autre joueur
+
+  // Tracker l'acceptation de ce joueur
+  if (!state.dungeonRequest) state.dungeonRequest = {};
+  state.dungeonRequest.accepted = true;
+  state.dungeonRequest.fromSessionId = fromSessionId;
+  state.dungeonRequest.fromName = fromName;
+
+  // Notifier l'autre joueur que tu as accepté
   if (window.multiState?.active) {
     wsSend('dungeon_accept', {
       fromSessionId,
@@ -125,15 +131,14 @@ function acceptDungeonRequest(fromSessionId, fromName) {
       acceptorName: getMyName(),
     });
   }
-  
-  // Entrer au donjon
-  addLog(`✅ En route avec ${fromName}...`, 'success');
-  setTimeout(() => {
-    // Laisser le UI se mettre à jour
-    if (typeof enterDungeon === 'function') {
-      enterDungeon();
-    }
-  }, 500);
+
+  // Afficher un bouton "Entrer au donjon" au lieu d'y entrer immédiatement
+  addLog(`✅ En route avec ${fromName}... Clic sur le portal pour entrer!`, 'success');
+
+  // Afficher le UI du donjon qui peut être cliqué
+  if (typeof showDungeonReadyUI === 'function') {
+    showDungeonReadyUI(fromName);
+  }
 }
 
 function declineDungeonRequest(fromSessionId) {
@@ -335,4 +340,54 @@ function renderGroupPlayers() {
     
     container.appendChild(item);
   });
+}
+
+// ─── AFFICHER LE UI POUR ENTRER AU DONJON ──────────────
+function showDungeonReadyUI(acceptorName) {
+  let btn = document.getElementById('dungeon-ready-btn');
+  if (!btn) {
+    // Créer le bouton s'il n'existe pas
+    btn = document.createElement('button');
+    btn.id = 'dungeon-ready-btn';
+    btn.style.cssText = `
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 400;
+      padding: 16px 32px;
+      background: linear-gradient(135deg, #9b4dca, #6b2ba8);
+      border: 2px solid #d4af37;
+      border-radius: 8px;
+      color: #fff;
+      font-family: 'Cinzel', serif;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      box-shadow: 0 4px 16px rgba(155, 77, 202, 0.6);
+      transition: all 0.2s;
+    `;
+    btn.textContent = '⚿ ENTRER AU DONJON ⚿';
+    btn.onmouseover = () => {
+      btn.style.background = 'linear-gradient(135deg, #b965e0, #8b3bc5)';
+      btn.style.transform = 'translateX(-50%) scale(1.05)';
+    };
+    btn.onmouseout = () => {
+      btn.style.background = 'linear-gradient(135deg, #9b4dca, #6b2ba8)';
+      btn.style.transform = 'translateX(-50%) scale(1)';
+    };
+    btn.onclick = () => {
+      btn.remove();
+      // Marquer que le groupe est prêt → enterDungeon() n'enverra plus de requêtes
+      state.dungeonPartyReady = true;
+      if (typeof enterDungeon === 'function') {
+        enterDungeon();
+      }
+    };
+    document.body.appendChild(btn);
+  }
+
+  // Afficher le nom de celui qui a accepté
+  addLog(`⚿ ${acceptorName} est prêt! Cliquez le bouton pour entrer ensemble au donjon!`, 'action');
 }
