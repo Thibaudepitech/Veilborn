@@ -380,7 +380,7 @@ wss.on('connection', (ws) => {
       for (const [targetWs, targetData] of room.players) {
         if (targetData.sessionId === msg.targetId) {
           send(targetWs, 'trade_confirm', {
-            fromSessionId: ws.sessionId,
+            sessionId: ws.sessionId,
             targetId: msg.targetId,
           });
           return;
@@ -395,7 +395,7 @@ wss.on('connection', (ws) => {
       for (const [targetWs, targetData] of room.players) {
         if (targetData.sessionId === msg.targetId) {
           send(targetWs, 'trade_cancel', {
-            fromSessionId: ws.sessionId,
+            sessionId: ws.sessionId,
             targetId: msg.targetId,
           });
           return;
