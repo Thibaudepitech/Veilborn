@@ -97,15 +97,38 @@ class VeilbornRoom extends Room {
     });
 
     this.onMessage('dungeon_ready', (client, data) => {
-      // Broadcaster l'état ready de ce joueur à tous les autres
       this.broadcast('dungeon_ready', {
         sessionId: client.sessionId,
         ready: data.ready,
       }, { except: client });
     });
 
+    this.onMessage('dungeon_at_portal', (client, data) => {
+      // Broadcaster à tout le monde sauf l'émetteur
+      this.broadcast('dungeon_at_portal', {
+        sessionId: client.sessionId,
+        name: data.name,
+      }, { except: client });
+    });
+
+    this.onMessage('dungeon_left_portal', (client, data) => {
+      this.broadcast('dungeon_left_portal', {
+        sessionId: client.sessionId,
+      }, { except: client });
+    });
+
+    this.onMessage('dungeon_player_ready', (client, data) => {
+      // Répondre au joueur ciblé (celui au portail)
+      const target = this.clients.find(c => c.sessionId === data.targetSessionId);
+      if (target) {
+        target.send('dungeon_player_ready', {
+          sessionId: client.sessionId,
+          ready: data.ready,
+        });
+      }
+    });
+
     this.onMessage('dungeon_start', (client, data) => {
-      // Broadcaster le lancement du donjon aux joueurs prêts
       this.broadcast('dungeon_start', {
         sessionId: client.sessionId,
         readySessions: data.readySessions || [],

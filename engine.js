@@ -134,7 +134,32 @@ function calcHeal(raw) { return Math.round(raw*(0.9+Math.random()*0.2)); }
 // ═══════════════════════════════════════════════════════
 // ENEMY HELPERS
 // ═══════════════════════════════════════════════════════
-function findEnemyAt(gx,gy) { return state.enemies.find(e=>e.alive&&e.gridX===gx&&e.gridY===gy)||null; }
+function findEnemyAt(gx,gy) {
+  // PvE enemies
+  const pve = state.enemies.find(e=>e.alive&&e.gridX===gx&&e.gridY===gy);
+  if (pve) return pve;
+  // Joueurs distants hostiles (hors-groupe) — traités comme ennemis
+  if (window.multiState?.remotePlayers) {
+    const myGroup = state.group?.members || [];
+    for (const [sessionId, rp] of Object.entries(window.multiState.remotePlayers)) {
+      if ((rp.x||0) === gx && (rp.y||0) === gy && !myGroup.includes(sessionId)) {
+        return {
+          _isRemotePlayer: true,
+          sessionId,
+          rp,
+          gridX: gx, gridY: gy,
+          name: rp.name || 'Joueur',
+          hp: rp.hp ?? 100,
+          maxHp: rp.hpMax ?? 100,
+          armor: 0,
+          alive: true,
+          debuffs: {},
+        };
+      }
+    }
+  }
+  return null;
+}
 
 // Trouver un joueur distant à une case donnée
 function findRemotePlayerAt(gx, gy) {
@@ -148,6 +173,16 @@ function findRemotePlayerAt(gx, gy) {
 }
 
 function applyDamageToEnemy(enemy, dmg, fromRemote) {
+  // Joueur distant hostile → rediriger vers PvP
+  if (enemy._isRemotePlayer) {
+    if (!fromRemote) {
+      wsSend('pvp_attack', { targetSessionId: enemy.sessionId, dmg });
+      spawnFloater(enemy.gridX, enemy.gridY, `⚔−${dmg}`, '#ff4444', 18);
+      addLog(`→ ${enemy.name}: −${dmg} PV (PvP)`, 'damage');
+      if (typeof AudioEngine !== 'undefined') AudioEngine.play.basicAttack?.();
+    }
+    return;
+  }
   if (!enemy.alive) return;
   if (enemy.debuffs.immortal) { spawnFloater(enemy.gridX,enemy.gridY,'IMMORTEL','#4ecdc4',11); return; }
   if (!fromRemote) {
@@ -833,6 +868,9 @@ function drawGrid() {
     const sortedDeco=[...DECORATIONS].sort((a,b)=>(a.gx+a.gy)-(b.gx+b.gy));
     sortedDeco.forEach(d=>{ if(!state.terrain[`${d.gx},${d.gy}`]) drawDecoration(d); });
   }
+
+  // Portail du donjon
+  if (typeof drawPortal === 'function') drawPortal();
 
   drawFootprints();
   drawPath();
@@ -1794,6 +1832,8 @@ function gameLoop(timestamp) {
   if (state.opts.vfx) drawVFX();
   if (state.showStats) refreshStatsPanel();
   if (state.animFrame % 60 === 0 && typeof updateTalentHUD === 'function') updateTalentHUD();
+  // Vérifier si le joueur est sur le portail
+  if (state.animFrame % 10 === 0 && typeof checkPortalStep === 'function') checkPortalStep();
   state.animFrame++; state.lastTimestamp = timestamp;
   requestAnimationFrame(gameLoop);
 }
