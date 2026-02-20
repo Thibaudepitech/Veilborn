@@ -488,34 +488,56 @@ function joinSession() {
 
 // ─── COPIER CODE ────────────────────────────────────────
 function copySessionCode() {
-  const code = document.getElementById('host-code-display').textContent;
+  const el = document.getElementById('host-code-display');
+  if (!el) return;
+  const code = el.textContent.trim();
   if (!code || code === '—') return;
   const btn = document.querySelector('.multi-copy-btn');
-  
-  // Utiliser Clipboard API si disponible
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code).then(() => {
-      if (btn) { btn.textContent = '✓ Copié!'; setTimeout(() => { btn.textContent = '📋 Copier le code'; }, 2000); }
-    }).catch(() => {
-      // Fallback: sélection manuelle
-      selectText(code, btn);
-    });
+
+  function onCopySuccess() {
+    if (btn) {
+      btn.textContent = '✓ Copié!';
+      btn.style.color = '#66ff66';
+      setTimeout(() => {
+        btn.textContent = '📋 Copier le code';
+        btn.style.color = '';
+      }, 2000);
+    }
+  }
+
+  function fallbackCopy() {
+    // Créer un textarea temporaire — méthode la plus fiable en HTTP/local
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    try {
+      const ok = document.execCommand('copy');
+      if (ok) { onCopySuccess(); return; }
+    } catch(e) {}
+    document.body.removeChild(ta);
+    // Dernier recours: afficher le code dans un prompt
+    window.prompt('Copiez ce code (Ctrl+C):', code);
+  }
+
+  // Méthode 1: Clipboard API moderne (HTTPS seulement)
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(code)
+      .then(onCopySuccess)
+      .catch(fallbackCopy);
   } else {
-    // Fallback: sélection manuelle si pas de Clipboard API
-    selectText(code, btn);
+    // HTTP ou localhost — fallback direct
+    fallbackCopy();
   }
 }
 
+// Alias kept for backward compatibility
 function selectText(code, btn) {
-  const el = document.getElementById('host-code-display');
-  if (el) {
-    const range = document.createRange();
-    range.selectNode(el);
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(range);
-    document.execCommand('copy');
-    if (btn) { btn.textContent = '✓ Copié!'; setTimeout(() => { btn.textContent = '📋 Copier le code'; }, 2000); }
-  }
+  copySessionCode();
 }
 
 // ─── LANCER PARTIE ──────────────────────────────────────

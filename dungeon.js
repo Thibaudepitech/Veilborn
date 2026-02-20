@@ -184,11 +184,9 @@ function enterDungeon() {
   if (dungeonState?.active) return;
   if (bossRoom?.active) return;
 
-  // En groupe: lancer un vote d'entrée
-  if (window.multiState?.active && state.group?.members.length > 0 && !state.dungeonPartyReady) {
-    if (typeof initiateDungeonVote === 'function') initiateDungeonVote();
-    return;
-  }
+  // PLUS DE VOTE — on entre directement.
+  // Le TP automatique des membres du groupe est géré dans enterDungeonRoom()
+  // via dungeon_tp_group envoyé après chaque changement de salle.
   state.dungeonPartyReady = false;
 
   addLog('⚿ Le portail vous aspire dans les profondeurs...', 'action');
