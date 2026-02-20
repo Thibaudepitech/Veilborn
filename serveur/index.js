@@ -198,6 +198,58 @@ wss.on('connection', (ws) => {
       send(ws, 'pong', { t: msg.t });
     }
 
+    // ── ENEMY_DAMAGE (sync dégâts ennemis en groupe) ──
+    else if (type === 'enemy_damage') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      // Broadcast les dégâts à tous les joueurs de la même zone
+      broadcast(room, 'enemy_damage', {
+        sessionId: ws.sessionId,
+        enemyId: msg.enemyId,
+        dmg: msg.dmg,
+        newHp: msg.newHp,
+        killed: msg.killed,
+        zone: msg.zone,
+      }, ws);
+    }
+
+    // ── PVP_ATTACK (attaque entre joueurs hors-groupe) ──
+    else if (type === 'pvp_attack') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const attacker = room.players.get(ws);
+      // Envoyer l'attaque à la cible
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetSessionId) {
+          send(targetWs, 'pvp_attack', {
+            attackerSessionId: ws.sessionId,
+            attackerName: attacker?.name || 'Joueur',
+            dmg: msg.dmg,
+          });
+          return;
+        }
+      }
+    }
+
+    // ── DUNGEON_TP_GROUP (TP automatique du groupe au donjon) ──
+    else if (type === 'dungeon_tp_group') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const sender = room.players.get(ws);
+      // Envoyer le TP à tous les membres du groupe listés
+      const groupMembers = msg.groupMembers || [];
+      for (const [targetWs, targetData] of room.players) {
+        if (groupMembers.includes(targetData.sessionId)) {
+          send(targetWs, 'dungeon_tp_group', {
+            fromSessionId: ws.sessionId,
+            fromName: sender?.name || 'Joueur',
+            zone: msg.zone,
+            roomId: msg.roomId,
+          });
+        }
+      }
+    }
+
     // ── GROUP INVITATIONS ────────────────────────────
     else if (type === 'group_invite') {
       const room = roomMap.get(ws.roomCode);

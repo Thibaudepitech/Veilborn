@@ -247,6 +247,18 @@ function enterDungeonRoom(roomId) {
 
   // Broadcast aux membres du groupe qu'on est dans cette salle
   broadcastDungeonStatus(roomCfg.zone, roomId);
+
+  // ── TP AUTOMATIQUE DES MEMBRES DU GROUPE ───────────────────────
+  // Si on est dans un groupe, téléporter tous les membres automatiquement
+  if (window.multiState?.active && state.group?.members?.length > 0) {
+    wsSend('dungeon_tp_group', {
+      groupMembers: state.group.members,
+      zone: roomCfg.zone,
+      roomId,
+      fromSessionId: window.multiState.sessionId,
+      fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+    });
+  }
 }
 
 // ─── SALLE BOSS ──────────────────────────────────────────────────
@@ -270,6 +282,17 @@ function enterDungeonBossRoom() {
   spawnDungeonBoss();
   showDungeonBossUI();
   broadcastDungeonStatus(DUNGEON_ZONES.boss, 4);
+
+  // ── TP AUTOMATIQUE DES MEMBRES DU GROUPE (salle boss) ─────────
+  if (window.multiState?.active && state.group?.members?.length > 0) {
+    wsSend('dungeon_tp_group', {
+      groupMembers: state.group.members,
+      zone: DUNGEON_ZONES.boss,
+      roomId: 4,
+      fromSessionId: window.multiState.sessionId,
+      fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+    });
+  }
 }
 
 // ─── BOSS SPAWN ──────────────────────────────────────────────────

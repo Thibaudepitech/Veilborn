@@ -379,7 +379,53 @@ function handleServerMessage(msg) {
   else if (type === 'pong') {
     // latence = Date.now() - msg.t
   }
-}
+
+  // ── ENEMY_DAMAGE (sync dégâts ennemis depuis un allié) ────────────
+  else if (type === 'enemy_damage') {
+    // Appliquer les dégâts sur le même ennemi localement
+    const currentZone = state.player?.location || 'overworld';
+    if (msg.zone !== currentZone) return; // pas dans la même zone
+    const enemy = state.enemies.find(e => e.id === msg.enemyId);
+    if (!enemy || !enemy.alive) return;
+    // Appliquer les dégâts reçus (fromRemote=true pour éviter de re-broadcast)
+    if (typeof applyDamageToEnemy === 'function') {
+      applyDamageToEnemy(enemy, msg.dmg, true);
+    } else {
+      // Fallback direct
+      enemy.hp = Math.max(0, msg.newHp);
+      if (enemy.hp <= 0 && !enemy.isDummy) enemy.alive = false;
+    }
+    // Floater visuel pour montrer que c'est un allié qui a fait les dégâts
+    if (typeof spawnFloater === 'function') spawnFloater(enemy.gridX, enemy.gridY, `-${msg.dmg}`, '#aaaaff', 13);
+    if (typeof showEnemyInspector === 'function' && state.hoveredCell?.gx === enemy.gridX && state.hoveredCell?.gy === enemy.gridY) {
+      showEnemyInspector(enemy);
+    }
+  }
+
+  // ── PVP_ATTACK (reçu quand un ennemi/joueur hors-groupe t'attaque) ──
+  else if (type === 'pvp_attack') {
+    const dmg = msg.dmg || 0;
+    state.hp = Math.max(0, state.hp - dmg);
+    if (typeof updateHpUI === 'function') updateHpUI();
+    if (typeof spawnFloater === 'function') spawnFloater(state.player.gridX, state.player.gridY, `-${dmg} ⚔PvP`, '#ff4444', 16);
+    if (typeof addLog === 'function') addLog(`⚔ ${msg.attackerName} vous attaque! −${dmg} PV`, 'damage');
+    if (typeof AudioEngine !== 'undefined') AudioEngine.play.hitReceived?.();
+    if (typeof multiState.broadcastHp === 'function') multiState.broadcastHp();
+  }
+
+  // ── DUNGEON_TP_GROUP (TP automatique dans le donjon du groupe) ────
+  else if (type === 'dungeon_tp_group') {
+    if (typeof addLog === 'function') addLog(`⚿ ${msg.fromName} entre dans le donjon — vous êtes téléporté!`, 'action');
+    if (typeof spawnFloater === 'function') spawnFloater(state.player.gridX, state.player.gridY, '⚿ TP DONJON', '#9b4dca', 16);
+    // TP immédiat sans vote
+    state.dungeonPartyReady = true;
+    if (typeof acceptJoinDungeon === 'function') {
+      acceptJoinDungeon(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId);
+    } else if (typeof enterDungeon === 'function') {
+      enterDungeon();
+    }
+  }
+} // end handleServerMessage
 
 // ─── CRÉER SESSION ──────────────────────────────────────
 function createSession() {

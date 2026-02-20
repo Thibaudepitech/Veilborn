@@ -317,6 +317,43 @@ canvas.addEventListener('click', e=>{
   // ── HORS GRILLE : ignorer ──────────────────────────
   if (gx < 0 || gy < 0 || gx >= GRID_SIZE || gy >= GRID_SIZE) return;
 
+  // ── CLIC SUR UN JOUEUR DISTANT ─────────────────────
+  if (window.multiState?.active) {
+    const myZone = state.player?.location || 'overworld';
+    for (const [sessionId, rp] of Object.entries(window.multiState.remotePlayers || {})) {
+      if ((rp.location || 'overworld') !== myZone) continue;
+      if (rp.x === gx && rp.y === gy) {
+        // Afficher les stats dans l'inspecteur
+        if (typeof showRemotePlayerStats === 'function') showRemotePlayerStats(sessionId);
+
+        const inGroup = state.group?.members?.includes(sessionId);
+        if (!inGroup) {
+          // PvP — attaque basique sur le joueur hors-groupe
+          const cls = CLASSES[state.selectedClass];
+          const dist = Math.abs(gx - state.player.gridX) + Math.abs(gy - state.player.gridY);
+          if (dist <= cls.range + 1) {
+            let dmg = Math.floor(Math.random() * 40 + 20);
+            if (state.buffs.raged) dmg = Math.round(dmg * 1.4);
+            if (state.buffs.animalForm) dmg = Math.round(dmg * 1.5);
+            const finalDmg = calcDamage(dmg, 0);
+            wsSend('pvp_attack', {
+              targetSessionId: sessionId,
+              dmg: finalDmg,
+            });
+            spawnFloater(gx, gy, `⚔ -${finalDmg}`, '#ff4444', 16);
+            addLog(`⚔ PvP: vous attaquez ${rp.name || 'Joueur'} — −${finalDmg} PV`, 'damage');
+            if (typeof AudioEngine !== 'undefined') AudioEngine.play.basicAttack?.();
+          } else {
+            addLog(`Hors de portée PvP! (${dist} cases, portée: ${cls.range})`, 'normal');
+          }
+        } else {
+          addLog(`${rp.name || 'Allié'} — membre de votre groupe (PvP désactivé)`, 'normal');
+        }
+        return;
+      }
+    }
+  }
+
   // ── ATTAQUE BASIQUE (hors ciblage) ─────────────────
   const enemy = findEnemyAt(gx, gy);
   if (enemy && enemy.alive) {

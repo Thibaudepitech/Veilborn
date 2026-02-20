@@ -137,12 +137,25 @@ function calcHeal(raw) { return Math.round(raw*(0.9+Math.random()*0.2)); }
 // ═══════════════════════════════════════════════════════
 function findEnemyAt(gx,gy) { return state.enemies.find(e=>e.alive&&e.gridX===gx&&e.gridY===gy)||null; }
 
-function applyDamageToEnemy(enemy, dmg) {
+function applyDamageToEnemy(enemy, dmg, fromRemote) {
   if (!enemy.alive) return;
   if (enemy.debuffs.immortal) { spawnFloater(enemy.gridX,enemy.gridY,'IMMORTEL','#4ecdc4',11); return; }
   state.combatStats.dmgDealt = (state.combatStats.dmgDealt||0) + dmg;
   if (typeof AudioEngine !== 'undefined') AudioEngine.play.hitReceived();
   enemy.hp = Math.max(0, enemy.hp-dmg);
+
+  // ── SYNC AUX MEMBRES DU GROUPE (même zone) ─────────────────────
+  // On ne re-broadcast pas si c'est un dégât reçu d'un allié (évite boucle)
+  if (!fromRemote && window.multiState?.active && state.group?.members?.length > 0) {
+    const currentZone = state.player?.location || 'overworld';
+    wsSend('enemy_damage', {
+      enemyId: enemy.id,
+      dmg,
+      newHp: enemy.hp,
+      killed: enemy.hp <= 0 && !enemy.isDummy,
+      zone: currentZone,
+    });
+  }
 
   // Link vital: heal player for 30% of damage
   if (state.buffs.linkedEnemy && state.buffs.linkedEnemy.id === enemy.id && state.buffs.linkedEnemyEnd > Date.now()) {
@@ -163,10 +176,10 @@ function applyDamageToEnemy(enemy, dmg) {
       if (typeof AudioEngine !== 'undefined') AudioEngine.play.enemyDeath();
       addLog(`${enemy.name} éliminé!`, 'action');
       if (enemy.isSentinel && typeof onSentinelDeath === 'function') onSentinelDeath(enemy);
-      // XP on kill
-      if (typeof gainXP === 'function' && !enemy.isBoss) gainXP(20 + Math.floor(Math.random()*15));
-      // LOOT on kill
-      if (typeof onEnemyKilled === 'function') onEnemyKilled(enemy);
+      // XP on kill — demi XP si tué par un allié
+      if (typeof gainXP === 'function' && !enemy.isBoss) gainXP(fromRemote ? 10 : 20 + Math.floor(Math.random()*15));
+      // LOOT on kill — pas de loot si tué par un allié (évite doublon)
+      if (!fromRemote && typeof onEnemyKilled === 'function') onEnemyKilled(enemy);
     }
   }
 }

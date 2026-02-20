@@ -505,47 +505,6 @@ function refreshStatsPanel() {
   html += `<div style="text-align:center;margin-top:14px;font-family:'IM Fell English',serif;font-style:italic;font-size:10px;color:#3a2010;">[ T ] pour fermer · [ Échap ] annuler</div>`;
   content.innerHTML = html;
 }
-// Show remote player stats in the enemy inspector panel
-function showRemotePlayerStats(sessionId) {
-  const rp = window.multiState?.remotePlayers?.[sessionId];
-  const empty = document.getElementById('enemy-inspector-empty');
-  const contentEl = document.getElementById('enemy-inspector-content');
-  if (!contentEl) return;
-  if (!rp) { if (empty) empty.style.display = 'block'; if (contentEl) contentEl.style.display = 'none'; return; }
-  if (empty) empty.style.display = 'none';
-  contentEl.style.display = 'block';
-
-  const cls = rp.classId ? CLASSES[rp.classId] : null;
-  const hpPct = rp.hpMax > 0 ? Math.round((rp.hp / rp.hpMax) * 100) : 100;
-  const hpColor = hpPct > 60 ? '#27ae60' : hpPct > 30 ? '#e08020' : '#ff2020';
-  const color = cls ? cls.color : '#00ccff';
-
-  let html = '';
-  html += `<div style="font-family:'Cinzel Decorative',serif;font-size:11px;color:${color};margin-bottom:6px;">◇ ${rp.name || 'Allié'}</div>`;
-  if (cls) html += `<div style="font-size:10px;color:#6a5030;margin-bottom:8px;font-style:italic;">${cls.role || cls.name}</div>`;
-
-  html += `<div style="background:rgba(0,0,0,0.5);border:1px solid rgba(120,80,30,0.3);height:8px;margin-bottom:4px;border-radius:1px;overflow:hidden;">
-    <div style="width:${hpPct}%;height:100%;background:${hpColor};transition:width 0.3s;"></div>
-  </div>`;
-
-  html += `<div class="ei-section-title">Statut</div>`;
-  html += `<div class="ei-stat-row"><span class="ei-stat-label">PV</span><span class="ei-stat-val">${rp.hp} / ${rp.hpMax} (${hpPct}%)</span></div>`;
-  if (cls) {
-    html += `<div class="ei-stat-row"><span class="ei-stat-label">Classe</span><span class="ei-stat-val" style="color:${color};">${cls.name}</span></div>`;
-    html += `<div class="ei-stat-row"><span class="ei-stat-label">Vitesse</span><span class="ei-stat-val">${cls.speed} c/s</span></div>`;
-    html += `<div class="ei-stat-row"><span class="ei-stat-label">Portée</span><span class="ei-stat-val">${cls.range} case${cls.range>1?'s':''}</span></div>`;
-  }
-  html += `<div class="ei-stat-row"><span class="ei-stat-label">Zone</span><span class="ei-stat-val">${rp.location || 'monde'}</span></div>`;
-  html += `<div class="ei-stat-row"><span class="ei-stat-label">Position</span><span class="ei-stat-val">(${rp.x||0}, ${rp.y||0})</span></div>`;
-
-  const inGroup = state.group?.members?.includes(sessionId);
-  html += `<div style="margin-top:8px;padding:4px 8px;background:${inGroup?'rgba(39,174,96,0.15)':'rgba(50,30,10,0.3)'};border:1px solid ${inGroup?'rgba(39,174,96,0.3)':'rgba(100,70,30,0.2)'};border-radius:3px;font-size:10px;color:${inGroup?'#27ae60':'#6a5030'};text-align:center;font-family:'Cinzel',serif;">
-    ${inGroup ? '✦ Dans votre groupe' : '— Hors groupe —'}
-  </div>`;
-
-  contentEl.innerHTML = html;
-}
-
 
 // Show remote player stats in the enemy inspector panel
 function showRemotePlayerStats(sessionId) {
@@ -561,29 +520,40 @@ function showRemotePlayerStats(sessionId) {
   const hpPct = rp.hpMax > 0 ? Math.round((rp.hp / rp.hpMax) * 100) : 100;
   const hpColor = hpPct > 60 ? '#27ae60' : hpPct > 30 ? '#e08020' : '#ff2020';
   const color = cls ? cls.color : '#00ccff';
+  const inGroup = state.group?.members?.includes(sessionId);
 
   let html = '';
-  html += `<div style="font-family:'Cinzel Decorative',serif;font-size:11px;color:${color};margin-bottom:6px;">&#9671; ${rp.name || 'Allie'}</div>`;
+  html += `<div style="font-family:'Cinzel Decorative',serif;font-size:11px;color:${color};margin-bottom:6px;">◇ ${rp.name || 'Joueur'}</div>`;
   if (cls) html += `<div style="font-size:10px;color:#6a5030;margin-bottom:8px;font-style:italic;">${cls.role || cls.name}</div>`;
 
   html += `<div style="background:rgba(0,0,0,0.5);border:1px solid rgba(120,80,30,0.3);height:8px;margin-bottom:4px;border-radius:1px;overflow:hidden;">
     <div style="width:${hpPct}%;height:100%;background:${hpColor};transition:width 0.3s;"></div>
   </div>`;
 
-  html += '<div class="ei-section-title">Statut</div>';
-  html += `<div class="ei-stat-row"><span class="ei-stat-label">PV</span><span class="ei-stat-val">${rp.hp} / ${rp.hpMax} (${hpPct}%)</span></div>`;
+  html += `<div class="ei-section-title">Statut</div>`;
+  html += `<div class="ei-stat-row"><span class="ei-stat-label">PV</span><span class="ei-stat-val ${hpPct<30?'danger':''}">${rp.hp} / ${rp.hpMax} (${hpPct}%)</span></div>`;
   if (cls) {
     html += `<div class="ei-stat-row"><span class="ei-stat-label">Classe</span><span class="ei-stat-val" style="color:${color};">${cls.name}</span></div>`;
     html += `<div class="ei-stat-row"><span class="ei-stat-label">Vitesse</span><span class="ei-stat-val">${cls.speed} c/s</span></div>`;
-    html += `<div class="ei-stat-row"><span class="ei-stat-label">Portee</span><span class="ei-stat-val">${cls.range} case${cls.range>1?'s':''}</span></div>`;
+    html += `<div class="ei-stat-row"><span class="ei-stat-label">Portée</span><span class="ei-stat-val">${cls.range} case${cls.range>1?'s':''}</span></div>`;
   }
   html += `<div class="ei-stat-row"><span class="ei-stat-label">Zone</span><span class="ei-stat-val">${rp.location || 'monde'}</span></div>`;
   html += `<div class="ei-stat-row"><span class="ei-stat-label">Position</span><span class="ei-stat-val">(${rp.x||0}, ${rp.y||0})</span></div>`;
 
-  const inGroup = state.group && state.group.members && state.group.members.includes(sessionId);
-  html += `<div style="margin-top:8px;padding:4px 8px;background:${inGroup?'rgba(39,174,96,0.15)':'rgba(50,30,10,0.3)'};border:1px solid ${inGroup?'rgba(39,174,96,0.3)':'rgba(100,70,30,0.2)'};border-radius:3px;font-size:10px;color:${inGroup?'#27ae60':'#6a5030'};text-align:center;font-family:'Cinzel',serif;">
-    ${inGroup ? '&#10022; Dans votre groupe' : '&#8212; Hors groupe &#8212;'}
+  // Badge groupe / PvP
+  html += `<div style="margin-top:8px;padding:4px 8px;background:${inGroup?'rgba(39,174,96,0.15)':'rgba(200,50,30,0.12)'};border:1px solid ${inGroup?'rgba(39,174,96,0.3)':'rgba(200,60,30,0.3)'};border-radius:3px;font-size:10px;color:${inGroup?'#27ae60':'#cc6644'};text-align:center;font-family:'Cinzel',serif;">
+    ${inGroup ? '✦ Dans votre groupe — PvP désactivé' : '⚔ Hors groupe — cliquez pour attaquer'}
   </div>`;
+
+  // Boutons d'action rapide
+  html += `<div style="display:flex;gap:6px;margin-top:8px;">`;
+  if (!inGroup) {
+    html += `<button onclick="inviteToGroup('${sessionId}','${rp.name||'Joueur'}')" style="flex:1;padding:5px;background:rgba(100,200,100,0.2);border:1px solid #66cc6688;color:#66ff66;border-radius:4px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;">👥 Inviter</button>`;
+  } else {
+    html += `<button onclick="leaveGroup('${sessionId}','${rp.name||'Joueur'}')" style="flex:1;padding:5px;background:rgba(200,80,80,0.2);border:1px solid #cc666688;color:#ff9999;border-radius:4px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;">❌ Quitter grp</button>`;
+  }
+  html += `<button onclick="openTradeWith('${sessionId}','${rp.name||'Joueur'}')" style="flex:1;padding:5px;background:rgba(200,160,50,0.2);border:1px solid #d4af3788;color:#d4af37;border-radius:4px;cursor:pointer;font-family:'Cinzel',serif;font-size:10px;">🎁 Trade</button>`;
+  html += `</div>`;
 
   inspContent.innerHTML = html;
 }
