@@ -140,46 +140,35 @@ function findEnemyAt(gx,gy) { return state.enemies.find(e=>e.alive&&e.gridX===gx
 function applyDamageToEnemy(enemy, dmg, fromRemote) {
   if (!enemy.alive) return;
   if (enemy.debuffs.immortal) { spawnFloater(enemy.gridX,enemy.gridY,'IMMORTEL','#4ecdc4',11); return; }
-  state.combatStats.dmgDealt = (state.combatStats.dmgDealt||0) + dmg;
-  if (typeof AudioEngine !== 'undefined') AudioEngine.play.hitReceived();
+  if (!fromRemote) {
+    state.combatStats.dmgDealt = (state.combatStats.dmgDealt||0) + dmg;
+    if (typeof AudioEngine !== 'undefined') AudioEngine.play.hitReceived();
+  }
   enemy.hp = Math.max(0, enemy.hp-dmg);
 
-  // ── SYNC AUX MEMBRES DU GROUPE (même zone) ─────────────────────
-  // On ne re-broadcast pas si c'est un dégât reçu d'un allié (évite boucle)
-  if (!fromRemote && window.multiState?.active && state.group?.members?.length > 0) {
-    const currentZone = state.player?.location || 'overworld';
-    wsSend('enemy_damage', {
-      enemyId: enemy.id,
-      dmg,
-      newHp: enemy.hp,
-      killed: enemy.hp <= 0 && !enemy.isDummy,
-      zone: currentZone,
-    });
-  }
-
-  // Link vital: heal player for 30% of damage
-  if (state.buffs.linkedEnemy && state.buffs.linkedEnemy.id === enemy.id && state.buffs.linkedEnemyEnd > Date.now()) {
+  // Link vital: heal player for 30% of damage (local only)
+  if (!fromRemote && state.buffs.linkedEnemy && state.buffs.linkedEnemy.id === enemy.id && state.buffs.linkedEnemyEnd > Date.now()) {
     const lheal = Math.round(dmg * 0.3);
     state.hp = Math.min(state.hpMax, state.hp + lheal);
     updateHpUI();
     if (lheal > 0) spawnFloater(state.player.gridX, state.player.gridY, `+${lheal}🕸`, '#4ecdc4', 10);
   }
 
-  // Grande Toile: player healed when enemies attack (handled in enemy turn)
   if (enemy.hp <= 0) {
     if (enemy.isDummy) {
       enemy.hp = enemy.maxHp;
-      addLog(`${enemy.name} résiste! PV réinitialisés.`, 'action');
+      if (!fromRemote) addLog(`${enemy.name} résiste! PV réinitialisés.`, 'action');
     } else {
       enemy.alive = false;
-      state.combatStats.kills = (state.combatStats.kills||0) + 1;
       if (typeof AudioEngine !== 'undefined') AudioEngine.play.enemyDeath();
       addLog(`${enemy.name} éliminé!`, 'action');
-      if (enemy.isSentinel && typeof onSentinelDeath === 'function') onSentinelDeath(enemy);
-      // XP on kill — demi XP si tué par un allié
-      if (typeof gainXP === 'function' && !enemy.isBoss) gainXP(fromRemote ? 10 : 20 + Math.floor(Math.random()*15));
-      // LOOT on kill — pas de loot si tué par un allié (évite doublon)
-      if (!fromRemote && typeof onEnemyKilled === 'function') onEnemyKilled(enemy);
+      if (!fromRemote) {
+        // XP et loot seulement pour le joueur qui a porté le coup fatal
+        state.combatStats.kills = (state.combatStats.kills||0) + 1;
+        if (enemy.isSentinel && typeof onSentinelDeath === 'function') onSentinelDeath(enemy);
+        if (typeof gainXP === 'function' && !enemy.isBoss) gainXP(20 + Math.floor(Math.random()*15));
+        if (typeof onEnemyKilled === 'function') onEnemyKilled(enemy);
+      }
     }
   }
 }
@@ -902,11 +891,20 @@ function drawGrid() {
     }
   }
 
-  // Remote players — only render if same location zone
+  // Remote players — visible seulement si même zone ET même groupe
   if (window.multiState) {
     const _myZone = state.player?.location || 'overworld';
+    const _myGroup = state.group?.members || [];
+    const _inDungeon = _myZone !== 'overworld';
     for (const [_pid, rp] of Object.entries(window.multiState.remotePlayers||{})) {
-      if ((rp.location || 'overworld') !== _myZone) continue;
+      const _rpZone = rp.location || 'overworld';
+      // Règle 1: zone différente → invisible
+      if (_rpZone !== _myZone) continue;
+      // Règle 2: en donjon → visible seulement si dans le groupe
+      if (_inDungeon && !_myGroup.includes(_pid)) continue;
+      // Règle 3: en overworld avec groupe → visible seulement si dans le groupe
+      // (si on a un groupe actif, les autres joueurs hors groupe sont invisibles)
+      if (!_inDungeon && _myGroup.length > 0 && !_myGroup.includes(_pid)) continue;
       const iso=gridToIso(rp.x||7,rp.y||7);
       const rcx=iso.x, rcy=iso.y+CELL_H/2;
       const rcls = rp.classId ? CLASSES[rp.classId] : null;

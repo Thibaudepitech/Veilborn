@@ -380,23 +380,23 @@ function handleServerMessage(msg) {
     // latence = Date.now() - msg.t
   }
 
-  // ── ENEMY_DAMAGE (sync dégâts ennemis depuis un allié) ────────────
+  // ── ENEMY_DAMAGE (sync dégâts ennemis — tous les joueurs dans la même zone) ──
   else if (type === 'enemy_damage') {
-    // Appliquer les dégâts sur le même ennemi localement
     const currentZone = state.player?.location || 'overworld';
-    if (msg.zone !== currentZone) return; // pas dans la même zone
+    if (msg.zone !== currentZone) return; // zone différente → ignorer
     const enemy = state.enemies.find(e => e.id === msg.enemyId);
     if (!enemy || !enemy.alive) return;
-    // Appliquer les dégâts reçus (fromRemote=true pour éviter de re-broadcast)
+    // fromRemote=true → pas d'XP/loot/stats doublés
     if (typeof applyDamageToEnemy === 'function') {
       applyDamageToEnemy(enemy, msg.dmg, true);
     } else {
-      // Fallback direct
       enemy.hp = Math.max(0, msg.newHp);
       if (enemy.hp <= 0 && !enemy.isDummy) enemy.alive = false;
     }
-    // Floater visuel pour montrer que c'est un allié qui a fait les dégâts
-    if (typeof spawnFloater === 'function') spawnFloater(enemy.gridX, enemy.gridY, `-${msg.dmg}`, '#aaaaff', 13);
+    // Floater couleur différente selon groupe ou non
+    const inGroup = state.group?.members?.includes(msg.sessionId);
+    const floatColor = inGroup ? '#aaaaff' : '#ffcc44';
+    if (typeof spawnFloater === 'function') spawnFloater(enemy.gridX, enemy.gridY, `-${msg.dmg}`, floatColor, 13);
     if (typeof showEnemyInspector === 'function' && state.hoveredCell?.gx === enemy.gridX && state.hoveredCell?.gy === enemy.gridY) {
       showEnemyInspector(enemy);
     }
@@ -630,10 +630,16 @@ function updateRemotePlayersPanel() {
   const players = Object.entries(multiState.remotePlayers);
   if (players.length === 0) { panel.style.display = 'none'; return; }
 
-  // Filtrer les joueurs pour afficher seulement ceux au même endroit
+  // Filtrer: même zone + même groupe
   const myLocation = state.player?.location || 'overworld';
+  const myGroup = state.group?.members || [];
+  const inDungeon = myLocation !== 'overworld';
   const filteredPlayers = players.filter(([sessionId, rp]) => {
-    return (rp.location || 'overworld') === myLocation;
+    const rpZone = rp.location || 'overworld';
+    if (rpZone !== myLocation) return false;
+    if (inDungeon && !myGroup.includes(sessionId)) return false;
+    if (!inDungeon && myGroup.length > 0 && !myGroup.includes(sessionId)) return false;
+    return true;
   });
 
   if (filteredPlayers.length === 0) { panel.style.display = 'none'; return; }
