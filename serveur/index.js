@@ -203,6 +203,204 @@ wss.on('connection', (ws) => {
     else if (type === 'ping') {
       send(ws, 'pong', { t: msg.t });
     }
+
+    // ── GROUP INVITATIONS ────────────────────────────
+    else if (type === 'group_invite') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const sender = room.players.get(ws);
+      // Trouver le joueur cible par sessionId
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetSessionId) {
+          send(targetWs, 'group_invite', {
+            fromSessionId: ws.sessionId,
+            fromName: sender?.name || 'Joueur',
+            targetSessionId: msg.targetSessionId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'group_accept') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const acceptor = room.players.get(ws);
+      // Envoyer au demandeur l'acceptation
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.fromSessionId) {
+          send(targetWs, 'group_accept', {
+            acceptorSessionId: ws.sessionId,
+            acceptorName: acceptor?.name || 'Joueur',
+            fromSessionId: msg.fromSessionId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'group_leave') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const leaver = room.players.get(ws);
+      // Notifier les autres du départ
+      broadcast(room, 'group_leave', {
+        leavingSessionId: ws.sessionId,
+        leavingName: leaver?.name || 'Joueur',
+        targetSessionId: msg.targetSessionId,
+      }, ws);
+    }
+
+    // ── DUNGEON REQUESTS ─────────────────────────────
+    else if (type === 'dungeon_request') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const requester = room.players.get(ws);
+      // Trouver le joueur cible
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetSessionId) {
+          send(targetWs, 'dungeon_request', {
+            fromSessionId: ws.sessionId,
+            fromName: requester?.name || 'Joueur',
+            targetSessionId: msg.targetSessionId,
+            dungeonType: msg.dungeonType,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'dungeon_accept') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const acceptor = room.players.get(ws);
+      // Envoyer au demandeur l'acceptation
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.fromSessionId) {
+          send(targetWs, 'dungeon_accept', {
+            acceptorSessionId: ws.sessionId,
+            acceptorName: acceptor?.name || 'Joueur',
+            fromSessionId: msg.fromSessionId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'dungeon_decline') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const decliner = room.players.get(ws);
+      // Envoyer au demandeur le refus
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.fromSessionId) {
+          send(targetWs, 'dungeon_decline', {
+            declineSessionId: ws.sessionId,
+            declineName: decliner?.name || 'Joueur',
+            fromSessionId: msg.fromSessionId,
+          });
+          return;
+        }
+      }
+    }
+
+    // ── TRADE REQUESTS ───────────────────────────────
+    else if (type === 'trade_request') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const requester = room.players.get(ws);
+      // Trouver le joueur cible
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_request', {
+            fromSessionId: ws.sessionId,
+            fromName: requester?.name || 'Joueur',
+            targetId: msg.targetId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'trade_accept') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const acceptor = room.players.get(ws);
+      // Envoyer à l'autre joueur l'acceptation
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_accept', {
+            fromSessionId: ws.sessionId,
+            fromName: acceptor?.name || 'Joueur',
+            targetId: msg.targetId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'trade_decline') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      // Envoyer à l'autre joueur le refus
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_decline', {
+            fromSessionId: ws.sessionId,
+            targetId: msg.targetId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'trade_offer') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      const sender = room.players.get(ws);
+      // Envoyer l'offre à l'autre joueur
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_offer', {
+            fromSessionId: ws.sessionId,
+            fromName: sender?.name || 'Joueur',
+            targetId: msg.targetId,
+            offer: msg.offer,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'trade_confirm') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      // Envoyer la confirmation à l'autre joueur
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_confirm', {
+            fromSessionId: ws.sessionId,
+            targetId: msg.targetId,
+          });
+          return;
+        }
+      }
+    }
+
+    else if (type === 'trade_cancel') {
+      const room = roomMap.get(ws.roomCode);
+      if (!room) return;
+      // Envoyer l'annulation à l'autre joueur
+      for (const [targetWs, targetData] of room.players) {
+        if (targetData.sessionId === msg.targetId) {
+          send(targetWs, 'trade_cancel', {
+            fromSessionId: ws.sessionId,
+            targetId: msg.targetId,
+          });
+          return;
+        }
+      }
+    }
   });
 
   ws.on('close', () => {
