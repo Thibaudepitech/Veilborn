@@ -2,6 +2,24 @@
 // SPELL EXECUTION — ALL SPELLS FULLY IMPLEMENTED
 // ═══════════════════════════════════════════════════════
 
+// Wrapper universel : fonctionne sur un ennemi PvE OU un joueur hostile distant
+function applyDamageToTarget(target, dmg) {
+  if (!target) return;
+  if (target._isRemotePlayer) {
+    // PvP — envoyer via WS
+    if (window.multiState?.active) {
+      wsSend('pvp_attack', {
+        targetSessionId: target.sessionId,
+        dmg: dmg,
+      });
+    }
+    spawnFloater(target.gridX, target.gridY, `⚔−${dmg}`, '#ff4444', 16);
+    addLog(`⚔ ${target.name}: −${dmg} PV (PvP)`, 'damage');
+  } else {
+    applyDamageToEnemy(target, dmg);
+  }
+}
+
 function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
   if (typeof AudioEngine !== 'undefined') AudioEngine.play.castSpell();
   if (!state.selectedClass) return;
@@ -54,7 +72,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en = targetEnemy || findEnemyAt(targetGx, targetGy);
       if (!en) { addLog('Aucun ennemi sur cette case.','normal'); cancelTargeting(); return; }
       const dmg = calcDamage(baseVal*dmgMult, en.armor);
-      applyDamageToEnemy(en, dmg);
+      applyDamageToTarget(en, dmg);
       addLog(`${skill.name} → ${en.name}: −${dmg} PV`,'damage');
       spawnFloater(en.gridX, en.gridY, `-${dmg}`, cls.color, 18);
       if (en.debuffs.death_mark) regenResource(1);
@@ -68,7 +86,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en = targetEnemy || findEnemyAt(targetGx, targetGy);
       if (!en) { addLog('Aucun ennemi.','normal'); cancelTargeting(); return; }
       const dmg = calcDamage(baseVal*dmgMult, en.armor);
-      applyDamageToEnemy(en, dmg);
+      applyDamageToTarget(en, dmg);
       const pen = 20;
       en.armor = Math.max(0, en.armor-pen);
       en.debuffs.fracture = true;
@@ -86,7 +104,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       lineCells.forEach(c=>{
         const en=findEnemyAt(c.x,c.y); if(!en) return;
         const dmg=calcDamage(baseVal*mult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,cls.color,16);
         hitCount++;
       });
@@ -107,7 +125,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits = state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult*0.5,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,'#9b4dca',13);
       });
       updateHpUI();
@@ -123,7 +141,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits = state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,'#9b4dca',16);
         // Pull toward center
         const dx=Math.sign(targetGx-en.gridX), dy=Math.sign(targetGy-en.gridY);
@@ -287,7 +305,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       lineCells.forEach(c=>{
         const en=findEnemyAt(c.x,c.y); if(!en) return;
         const dmg=calcDamage(baseVal*mult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,'#e74c3c',16);
         knockbackEnemy(en,Math.sign(targetGx-px)||1,Math.sign(targetGy-py),2);
         hitCount++;
@@ -442,7 +460,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
         wallCells.forEach(c=>{
           const en=findEnemyAt(c.x,c.y); if(!en) return;
           const dmg=calcDamage(baseVal*dmgMult,en.armor);
-          applyDamageToEnemy(en,dmg);
+          applyDamageToTarget(en, dmg);
           spawnFloater(en.gridX,en.gridY,`-${dmg}🔥`,'#e67e22',12);
         });
       },500);
@@ -469,7 +487,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
         lineCells.forEach(c=>{
           const en=findEnemyAt(c.x,c.y); if(!en) return;
           const dmg=calcDamage(baseVal*dmgMult,en.armor);
-          applyDamageToEnemy(en,dmg);
+          applyDamageToTarget(en, dmg);
           spawnFloater(en.gridX,en.gridY,`-${dmg}🔥`,'#e67e22',11);
         });
       },500);
@@ -509,7 +527,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en=targetEnemy||findEnemyAt(targetGx,targetGy);
       if(!en){addLog('Aucun ennemi.','normal');cancelTargeting();return;}
       const dmg=calcDamage(baseVal*dmgMult,en.armor,30);
-      applyDamageToEnemy(en,dmg);
+      applyDamageToTarget(en, dmg);
       addLog(`Combustion → ${en.name}: −${dmg} PV (−30% résistance)`,'damage');
       spawnFloater(en.gridX,en.gridY,`-${dmg}🔥`,cls.color,18);
       break;
@@ -520,7 +538,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits=state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}🔥`,'#e67e22',14);
         knockbackEnemy(en,Math.sign(en.gridX-px)||1,Math.sign(en.gridY-py),2);
       });
@@ -549,7 +567,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en=targetEnemy||findEnemyAt(targetGx,targetGy);
       if(!en){addLog('Aucun ennemi.','normal');cancelTargeting();return;}
       const dmg=calcDamage(baseVal*dmgMult,en.armor);
-      applyDamageToEnemy(en,dmg);
+      applyDamageToTarget(en, dmg);
       addLog(`Frappe sacrée → ${en.name}: −${dmg} PV`,'damage');
       spawnFloater(en.gridX,en.gridY,`-${dmg}✦`,'#f1c40f',18);
       // Splash if Foi > 50
@@ -680,7 +698,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const combo=Math.max(1,Math.round(resVal));
       const finalMult=1+combo*0.35;
       const dmg=calcDamage(baseVal*dmgMult*finalMult,en.armor);
-      applyDamageToEnemy(en,dmg);
+      applyDamageToTarget(en, dmg);
       addLog(`Éviscération (×${combo} Combo) → ${en.name}: −${dmg} PV!`,'damage');
       spawnFloater(en.gridX,en.gridY,`-${dmg}`,'#8e44ad',20);
       break;
@@ -699,7 +717,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       for(let i=0;i<5;i++){
         const dmg=calcDamage(baseVal*dmgMult*0.3,en.armor);
         totalDmg+=dmg;
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
       }
       addLog(`EXÉCUTION → ${en.name}: −${totalDmg} PV (5 frappes)!`,'damage');
       spawnFloater(en.gridX,en.gridY,`💀 ${totalDmg}`,'#8e44ad',22);
@@ -724,7 +742,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       hits.forEach(en=>{
         if(comboGained>=5) return;
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,'#8e44ad',14);
         comboGained++;
       });
@@ -781,7 +799,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits=state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,cls.color,18);
         en.debuffs.stunned=true; setTimeout(()=>{if(en.alive)en.debuffs.stunned=false;},2000);
       });
@@ -796,7 +814,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits=state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}`,cls.color,18);
         const kbx=Math.sign(en.gridX-px)||1, kby=Math.sign(en.gridY-py);
         knockbackEnemy(en,kbx,kby,3);
@@ -813,7 +831,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const hits=state.enemies.filter(e=>e.alive&&zoneCells.some(c=>c.x===e.gridX&&c.y===e.gridY));
       hits.forEach(en=>{
         const dmg=calcDamage(baseVal*dmgMult,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}⚡`,'#27ae60',14);
         en.debuffs.rooted=true; setTimeout(()=>{if(en.alive)en.debuffs.rooted=false;},2000);
       });
@@ -837,7 +855,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
         const pInt=setInterval(()=>{
           if(!en.alive||++ticks2>10){clearInterval(pInt);if(en.alive)en.debuffs.poisoned=false;return;}
           const dmg=calcDamage(baseVal*dmgMult,en.armor);
-          applyDamageToEnemy(en,dmg);
+          applyDamageToTarget(en, dmg);
           spawnFloater(en.gridX,en.gridY,`-${dmg}☠`,'#27ae60',11);
         },500);
       });
@@ -863,7 +881,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en=targetEnemy||findEnemyAt(targetGx,targetGy);
       if(!en){addLog('Aucun ennemi.','normal');cancelTargeting();return;}
       const dmg=calcDamage(baseVal*dmgMult,en.armor);
-      applyDamageToEnemy(en,dmg);
+      applyDamageToTarget(en, dmg);
       en.debuffs.stunned=true;
       setTimeout(()=>{if(en.alive)en.debuffs.stunned=false;},2000);
       addLog(`${skill.name} → ${en.name}: −${dmg} PV + stun!`,'damage');
@@ -877,7 +895,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const dmg1=calcDamage(baseVal*dmgMult,en.armor);
       const bonus=en.debuffs.fracture?1.5:1;
       const dmg2=calcDamage(baseVal*dmgMult*bonus,en.armor);
-      applyDamageToEnemy(en,dmg1+dmg2);
+      applyDamageToTarget(en,dmg1+dmg2);
       addLog(`${skill.name} → ${en.name}: −${dmg1+dmg2} PV`,'damage');
       spawnFloater(en.gridX,en.gridY,`-${dmg1+dmg2}`,cls.color,18);
       break;
@@ -904,7 +922,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
         if(state.terrain[`${nx},${ny}`]==='blocked') break;
         dashCells.push({x:nx,y:ny});
         const en=findEnemyAt(nx,ny);
-        if(en){ const dmg=calcDamage(baseVal*dmgMult,en.armor); applyDamageToEnemy(en,dmg); spawnFloater(en.gridX,en.gridY,`-${dmg}`,cls.color,14); }
+        if(en){ const dmg=calcDamage(baseVal*dmgMult,en.armor); applyDamageToTarget(en, dmg); spawnFloater(en.gridX,en.gridY,`-${dmg}`,cls.color,14); }
       }
       if(dashCells.length>0) startMoving(dashCells);
       addLog('Traîne de lames!','action');
@@ -933,7 +951,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const poisInt=setInterval(()=>{
         if(!en.alive||++poisonTicks>10){clearInterval(poisInt);if(en.alive)en.debuffs.poisoned=false;return;}
         const dmg=calcDamage(baseVal,en.armor);
-        applyDamageToEnemy(en,dmg);
+        applyDamageToTarget(en, dmg);
         spawnFloater(en.gridX,en.gridY,`-${dmg}☠`,'#8e44ad',11);
         regenResource(1);
       },500);
@@ -991,7 +1009,7 @@ function executeSkill(slotIdx, targetGx, targetGy, targetEnemy) {
       const en=targetEnemy||findEnemyAt(targetGx,targetGy);
       if(!en){addLog('Aucun ennemi.','normal');cancelTargeting();return;}
       const dmg=calcDamage(baseVal*dmgMult,en.armor);
-      applyDamageToEnemy(en,dmg);
+      applyDamageToTarget(en, dmg);
       const pen=Math.round(en.armor*0.2);
       en.armor=Math.max(0,en.armor-pen);
       en.debuffs.judged=true;

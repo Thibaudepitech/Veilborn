@@ -51,6 +51,12 @@ function generateName() {
   return `Joueur-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
 }
 
+function getMyName() {
+  // Chercher le nom dans les données du joueur local
+  if (window._myPlayerName) return window._myPlayerName;
+  return generateName();
+}
+
 // ─── UI CONFIGURATION SERVEUR ────────────────────────────
 function testServerConnection() {
   const input = document.getElementById('server-url-input');
@@ -230,6 +236,7 @@ function handleServerMessage(msg) {
     addLog(`${msg.name || 'Joueur'} a rejoint!`, 'action');
     if (typeof refreshChatPlayerList === 'function') refreshChatPlayerList();
     if (msg.name && msg.sessionId) { if (typeof ChatSystem !== 'undefined') ChatSystem.playerNames[msg.sessionId] = msg.name; }
+    if (typeof refreshDungeonReadyPanel === 'function') refreshDungeonReadyPanel();
   }
 
   else if (type === 'player_left') {
@@ -238,6 +245,7 @@ function handleServerMessage(msg) {
     delete multiState.remotePlayers[msg.sessionId];
     updateRemotePlayersPanel();
     updateConnectedPeersList();
+    if (typeof refreshDungeonReadyPanel === 'function') refreshDungeonReadyPanel();
   }
 
   else if (type === 'move') {
@@ -292,6 +300,12 @@ function handleServerMessage(msg) {
   // Trade messages
   else if (type.startsWith('trade_')) {
     if (typeof onTradeMessage === 'function') onTradeMessage(msg);
+  }
+
+  // Dungeon messages
+  else if (type.startsWith('dungeon_')) {
+    if (typeof onDungeonMessage === 'function') onDungeonMessage(msg);
+    if (typeof refreshDungeonReadyPanel === 'function') refreshDungeonReadyPanel();
   }
 
   // ─── GROUPE ET INVITATIONS ──────────────────────────────────
@@ -496,6 +510,8 @@ function setupBroadcasters() {
   // Show chat
   const _cb = document.getElementById('chat-toggle-btn');
   if (_cb) _cb.style.display = 'flex';
+  // Show dungeon panel
+  if (typeof refreshDungeonReadyPanel === 'function') refreshDungeonReadyPanel();
   multiState.broadcastClass = (info) => {
     wsSend('class_change', { classId: info.classId, hp: info.hp, hpMax: info.hpMax, x: info.x, y: info.y, name: info.name, location: state.player?.location || 'overworld' });
   };

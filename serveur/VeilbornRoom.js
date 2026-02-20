@@ -81,6 +81,42 @@ class VeilbornRoom extends Room {
     this.onMessage('ping', (client, data) => {
       client.send('pong', { t: data.t });
     });
+
+    this.onMessage('pvp_attack', (client, data) => {
+      // Relayer l'attaque PvP à la cible
+      const attacker = this.playerData?.[client.sessionId];
+      const attackerName = attacker?.name || `Joueur-${client.sessionId.slice(0,4)}`;
+      const target = this.clients.find(c => c.sessionId === data.targetSessionId);
+      if (target) {
+        target.send('pvp_attack', {
+          sessionId: client.sessionId,
+          attackerName,
+          dmg: data.dmg,
+        });
+      }
+    });
+
+    this.onMessage('dungeon_ready', (client, data) => {
+      // Broadcaster l'état ready de ce joueur à tous les autres
+      this.broadcast('dungeon_ready', {
+        sessionId: client.sessionId,
+        ready: data.ready,
+      }, { except: client });
+    });
+
+    this.onMessage('dungeon_start', (client, data) => {
+      // Broadcaster le lancement du donjon aux joueurs prêts
+      this.broadcast('dungeon_start', {
+        sessionId: client.sessionId,
+        readySessions: data.readySessions || [],
+      });
+    });
+
+    this.onMessage('dungeon_exit', (client, data) => {
+      this.broadcast('dungeon_exit', {
+        sessionId: client.sessionId,
+      }, { except: client });
+    });
   }
 
   onJoin(client, options) {

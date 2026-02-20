@@ -314,7 +314,23 @@ canvas.addEventListener('click', e=>{
   // En mode ciblage : le clic valide UNIQUEMENT le spell, rien d'autre
   if (state.targeting.active) {
     const targetEnemy = findEnemyAt(gx, gy);
-    executeSkill(state.targeting.skillIdx, gx, gy, targetEnemy);
+    // Si pas d'ennemi PvE, vérifier un joueur hostile
+    const remoteTarget = !targetEnemy ? findRemotePlayerAt(gx, gy) : null;
+    const isHostileRemote = remoteTarget && !state.group?.members?.includes(remoteTarget.sessionId);
+    // Passer le joueur hostile comme pseudo-ennemi si nécessaire
+    const spellTarget = targetEnemy || (isHostileRemote ? {
+      _isRemotePlayer: true,
+      sessionId: remoteTarget.sessionId,
+      rp: remoteTarget.rp,
+      gridX: gx, gridY: gy,
+      name: remoteTarget.rp.name || 'Joueur',
+      hp: remoteTarget.rp.hp ?? 100,
+      maxHp: remoteTarget.rp.hpMax ?? 100,
+      armor: 0,
+      alive: true,
+      debuffs: {},
+    } : null);
+    executeSkill(state.targeting.skillIdx, gx, gy, spellTarget);
     return; // STOP — pas d'attaque basique
   }
 
@@ -409,6 +425,9 @@ document.addEventListener('keydown', e=>{
     case 'c': case 'C': if(typeof toggleChat==='function') toggleChat(); break;
     case 'm': case 'M': document.getElementById('audio-settings-modal').style.display='flex'; break;
     case 'a': case 'A': if(typeof openTalentTree==='function') openTalentTree(); break;
+    case 'f': case 'F':
+      if (typeof DungeonSystem !== 'undefined' && DungeonSystem.inDungeon) exitDungeonZone();
+      break;
     case 'g': case 'G': toggleGrid(); break;
     case 't': case 'T': toggleStatsPanel(); break;
     case '1': enterTargetingMode(0); break;
