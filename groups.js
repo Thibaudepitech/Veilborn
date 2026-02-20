@@ -525,7 +525,7 @@ function renderDungeonLobbyUI() {
         <div style="display: flex; align-items: center; gap: 10px;">
           <span style="font-size: 18px;">${isLeader ? '👑' : '👤'}</span>
           <div>
-            <div style="font-weight: bold; font-size: 13px; color: ${memberId === myId ? '#66ff66' : '#d4af37'};">${name}${memberId === myId ? ' (Vous)' : ''}</div>
+            <div style="font-weight: bold; font-size: 13px; color: ${memberId === myId ? '#66ff66' : '#d4af37'};">${name}</div>
             <div style="font-size: 10px; color: #888;">${isLeader ? 'Créateur du groupe' : 'Membre'}</div>
           </div>
         </div>

@@ -215,7 +215,6 @@ function refreshPortalModal() {
         '<span style="font-size:15px;color:#2ecc71;">⚿</span>' +
         '<span style="flex:1;font-size:11px;color:' + (p.isMe ? '#d4af37' : '#c8a96e') + ';">' +
           p.name +
-          (p.isMe ? '&nbsp;<span style="color:#554020;font-size:9px;">(vous)</span>' : '') +
           (isChef ? '&nbsp;<span style="color:#9b4dca;font-size:9px;">⭐ chef</span>' : '') +
         '</span>' +
         '<span style="font-size:10px;color:#2ecc71;">✓ Au portail</span>' +
