@@ -214,7 +214,7 @@ function enterDungeon() {
 }
 
 // ─── ENTRER DANS UNE SALLE ───────────────────────────────────────
-function enterDungeonRoom(roomId) {
+function enterDungeonRoom(roomId, joinedFromGridX, joinedFromGridY) {
   if (!dungeonState?.active) return;
   // Random run
   if (dungeonState.isRandomRun && typeof enterRandomRoom === 'function') {
@@ -241,7 +241,12 @@ function enterDungeonRoom(roomId) {
   dungeonState.roomBg = roomCfg.bgGrad;
   dungeonState.roomColor = roomCfg.accentColor;
 
-  state.player.gridX = 7; state.player.gridY = 13;
+  // Si on a des coordonnées du joueur qui déclenche l'entrée, les utiliser
+  // Sinon, position par défaut
+  const startX = joinedFromGridX !== undefined ? joinedFromGridX : 7;
+  const startY = joinedFromGridY !== undefined ? joinedFromGridY : 13;
+  state.player.gridX = startX;
+  state.player.gridY = startY;
   state.player.path = []; state.player.moving = false;
   initPlayerPixelPos();
 
@@ -266,6 +271,8 @@ function enterDungeonRoom(roomId) {
       roomId,
       fromSessionId: window.multiState.sessionId,
       fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+      fromGridX: state.player.gridX,
+      fromGridY: state.player.gridY,
       exitDungeon: false,
     });
   }
@@ -301,6 +308,8 @@ function enterDungeonBossRoom() {
       roomId: 4,
       fromSessionId: window.multiState.sessionId,
       fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+      fromGridX: state.player.gridX,
+      fromGridY: state.player.gridY,
       exitDungeon: false,
     });
   }
@@ -693,12 +702,14 @@ function broadcastDungeonStatus(zone, roomId) {
     roomId,
     fromSessionId: window.multiState.sessionId,
     fromName: typeof getMyName === 'function' ? getMyName() : 'Joueur',
+    fromGridX: state.player.gridX,
+    fromGridY: state.player.gridY,
   });
 }
 
 // ─── REJOINDRE UN DONJON EN COURS ────────────────────────────────
 // Appelé quand un membre du groupe veut rejoindre le donjon d'un autre
-function joinDungeonInProgress(fromSessionId, fromName, zone, roomId) {
+function joinDungeonInProgress(fromSessionId, fromName, zone, roomId, fromGridX, fromGridY) {
   if (dungeonState?.active) return; // déjà dans un donjon
   if (bossRoom?.active) return;
 
@@ -722,7 +733,7 @@ function joinDungeonInProgress(fromSessionId, fromName, zone, roomId) {
     <div style="font-size:11px;color:#9b4dca;letter-spacing:1px;margin-bottom:6px;">⚿ REJOINDRE LE DONJON</div>
     <div style="font-size:12px;color:#c8a96e;margin-bottom:10px;">${fromName} — Salle ${roomId}/3</div>
     <div style="display:flex;gap:8px;">
-      <button onclick="acceptJoinDungeon('${fromSessionId}','${fromName}','${zone}',${roomId})"
+      <button onclick="acceptJoinDungeon('${fromSessionId}','${fromName}','${zone}',${roomId},${fromGridX||7},${fromGridY||13})"
         style="flex:1;padding:7px;background:rgba(100,200,100,0.2);border:1px solid #66cc6688;
                color:#66ff66;border-radius:4px;cursor:pointer;font-family:'Cinzel',serif;font-size:11px;">
         Rejoindre
@@ -738,7 +749,7 @@ function joinDungeonInProgress(fromSessionId, fromName, zone, roomId) {
   setTimeout(() => notif?.parentNode && notif.remove(), 30000);
 }
 
-function acceptJoinDungeon(fromSessionId, fromName, zone, roomId) {
+function acceptJoinDungeon(fromSessionId, fromName, zone, roomId, fromGridX, fromGridY) {
   const notif = document.getElementById('dungeon_join_' + fromSessionId);
   if (notif) notif.remove();
 
@@ -760,10 +771,12 @@ function acceptJoinDungeon(fromSessionId, fromName, zone, roomId) {
     aiInterval: null,
     bossTickInterval: null,
     boss: null,
+    joinedFromGridX: fromGridX || 7,
+    joinedFromGridY: fromGridY || 13,
   };
 
   dungeonState.aiInterval = setInterval(tickDungeonAI, 800);
-  setTimeout(() => enterDungeonRoom(parseInt(roomId)), 300);
+  setTimeout(() => enterDungeonRoom(parseInt(roomId), fromGridX, fromGridY), 300);
 }
 
 // ─── HUD ─────────────────────────────────────────────────────────

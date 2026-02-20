@@ -354,7 +354,7 @@ function handleServerMessage(msg) {
     // Un membre du groupe est dans un donjon — proposer de rejoindre
     if (msg.fromSessionId !== multiState.sessionId && state.group.members.includes(msg.fromSessionId)) {
       if (typeof joinDungeonInProgress === 'function') {
-        joinDungeonInProgress(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId);
+        joinDungeonInProgress(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId, msg.fromGridX, msg.fromGridY);
       }
     }
   }
@@ -445,7 +445,7 @@ function handleServerMessage(msg) {
 
     state.dungeonPartyReady = true;
     if (typeof acceptJoinDungeon === 'function') {
-      acceptJoinDungeon(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId);
+      acceptJoinDungeon(msg.fromSessionId, msg.fromName, msg.zone, msg.roomId, msg.fromGridX, msg.fromGridY);
     } else if (typeof enterDungeon === 'function') {
       enterDungeon();
     }
