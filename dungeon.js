@@ -179,13 +179,17 @@ function refreshPortalModal() {
   const offReady = Array.from(DungeonSystem.remoteReady.values()).filter(function(v) { return v === true; }).length;
   const totalTP  = atCount + offReady;
 
-  const subtitle = isLeader
+  // 1er dans atPortal = chef si serveur n'a pas encore répondu
+  const isFirstAtPortal = DungeonSystem.atPortal.size >= 1 && DungeonSystem.atPortal.has('me') && !DungeonSystem.leaderSessionId;
+  const effectiveLeader = isLeader || isFirstAtPortal;
+
+  const subtitle = effectiveLeader
     ? '<span style="color:#d4af37;font-size:9px;">Chef d\'expédition — vous contrôlez le lancement</span>'
     : (DungeonSystem.leaderName
-      ? '<span style="color:#9b4dca;font-size:9px;">Chef: ' + DungeonSystem.leaderName + ' · Vue en lecture seule</span>'
-      : '<span style="color:#6a5030;font-size:9px;">En attente du chef d\'expédition</span>');
+      ? '<span style="color:#9b4dca;font-size:9px;">Chef : ' + DungeonSystem.leaderName + ' · Vue en lecture seule</span>'
+      : '<span style="color:#6a5030;font-size:9px;">⏳ Identification du chef…</span>');
 
-  const launchBtn = isLeader
+  const launchBtn = (effectiveLeader)
     ? '<button onclick="startDungeon()" style="flex:2;padding:9px;background:linear-gradient(135deg,rgba(100,30,200,0.5),rgba(60,10,120,0.6));border:1px solid rgba(155,77,202,0.8);color:#d4af37;font-family:\'Cinzel\',serif;font-size:11px;border-radius:4px;cursor:pointer;font-weight:bold;letter-spacing:1px;">⚿ LANCER LE DONJON</button>'
     : '<div style="flex:2;padding:9px;background:rgba(40,10,80,0.2);border:1px solid rgba(155,77,202,0.3);color:#6a5030;font-family:\'Cinzel\',serif;font-size:10px;border-radius:4px;text-align:center;display:flex;align-items:center;justify-content:center;">⏳ Attente du chef…</div>';
 
@@ -270,7 +274,8 @@ function clearPortalNotif() {
 // ─────────────────────────────────────────────────────────────
 function startDungeon() {
   if (DungeonSystem.inDungeon) return;
-  if (DungeonSystem.leaderSessionId !== 'me') return;
+  const isEffectiveLeader = DungeonSystem.leaderSessionId === 'me' || (!DungeonSystem.leaderSessionId && DungeonSystem.atPortal.size >= 1 && DungeonSystem.atPortal.has('me'));
+  if (!isEffectiveLeader) return;
 
   const readySessions = [];
   if (window.multiState && window.multiState.sessionId) readySessions.push(window.multiState.sessionId);

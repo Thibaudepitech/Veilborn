@@ -44,54 +44,62 @@
      MULTIJOUEUR PANEL
 ═══════════════════════════════════════ -->
 <div id="multi-panel">
-  <div class="cs-title">✦ MULTIJOUEUR P2P ✦</div>
-  <div class="cs-sub">Connexion directe entre navigateurs via WebRTC — aucun serveur requis</div>
+  <div class="cs-title">✦ MULTIJOUEUR ✦</div>
+  <div class="cs-sub">Choisissez votre identité puis rejoignez ou créez une session</div>
 
-  <!-- SERVER CONFIGURATION -->
-  <div class="server-config" style="background:#0a0a0a;border:1px solid #553d2f;border-radius:8px;padding:16px;margin-bottom:20px;font-family:'Courier New',monospace;">
-    <div style="color:#d4af37;font-weight:bold;margin-bottom:8px;font-size:13px;">⚙ CONFIGURATION DU SERVEUR</div>
-    <div style="color:#888;font-size:12px;margin-bottom:12px;">Local: ws://localhost:3000 | Internet: wss://votre-url.com | Ngrok: wss://xxxx-xxxx-xxxx.ngrok.io</div>
-    <input type="text" id="server-url-input" class="multi-input" placeholder="ws://localhost:3000" style="width:100%;box-sizing:border-box;margin-bottom:8px;padding:8px;background:#1a1a1a;border:1px solid #553d2f;color:#d4af37;font-family:'Courier New',monospace;font-size:12px;">
-    <div style="display:flex;gap:8px;margin-bottom:12px;">
-      <button class="cs-btn confirm" id="btn-test-server" onclick="testServerConnection()" style="flex:1;padding:8px;font-size:12px;">🔌 Tester</button>
-      <button class="cs-btn confirm" id="btn-save-server" onclick="saveServerUrl()" style="flex:1;padding:8px;font-size:12px;">💾 Enregistrer</button>
+  <!-- ÉTAPE 1 : IDENTITÉ -->
+  <div style="background:rgba(20,8,4,0.8);border:1px solid #553d2f;border-radius:8px;padding:16px;margin-bottom:16px;">
+    <div style="color:#d4af37;font-family:'Cinzel',serif;font-size:11px;letter-spacing:2px;margin-bottom:12px;">✦ VOTRE IDENTITÉ</div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;">
+      <label style="color:#8a6040;font-family:'Cinzel',serif;font-size:10px;white-space:nowrap;">Pseudo :</label>
+      <input type="text" id="multi-name-input" class="multi-input" placeholder="Votre nom…" maxlength="16"
+        style="flex:1;padding:7px 10px;font-size:12px;"
+        oninput="updateMultiPreview()">
     </div>
-    <div id="server-status" style="color:#888;font-size:11px;min-height:16px;"></div>
+    <div style="color:#8a6040;font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;margin-bottom:8px;">CLASSE :</div>
+    <div id="multi-class-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;"></div>
+    <div id="multi-class-selected" style="margin-top:10px;min-height:28px;text-align:center;font-family:'Cinzel',serif;font-size:10px;color:#9b4dca;"></div>
   </div>
 
+  <!-- SERVER CONFIGURATION (collapsed) -->
+  <details style="margin-bottom:12px;">
+    <summary style="color:#8a6040;font-family:'Cinzel',serif;font-size:10px;letter-spacing:1px;cursor:pointer;padding:6px 0;">⚙ Configuration serveur</summary>
+    <div style="background:#0a0a0a;border:1px solid #553d2f;border-radius:6px;padding:12px;margin-top:8px;font-family:'Courier New',monospace;">
+      <div style="color:#888;font-size:11px;margin-bottom:8px;">ws://localhost:3000 | wss://votre-url.com</div>
+      <input type="text" id="server-url-input" class="multi-input" placeholder="ws://localhost:3000" style="width:100%;box-sizing:border-box;margin-bottom:6px;padding:7px;background:#1a1a1a;border:1px solid #553d2f;color:#d4af37;font-family:'Courier New',monospace;font-size:11px;">
+      <div style="display:flex;gap:6px;margin-bottom:6px;">
+        <button class="cs-btn confirm" id="btn-test-server" onclick="testServerConnection()" style="flex:1;padding:6px;font-size:11px;">🔌 Tester</button>
+        <button class="cs-btn confirm" id="btn-save-server" onclick="saveServerUrl()" style="flex:1;padding:6px;font-size:11px;">💾 Sauvegarder</button>
+      </div>
+      <div id="server-status" style="color:#888;font-size:10px;min-height:14px;"></div>
+    </div>
+  </details>
+
+  <!-- ÉTAPE 2 : SESSION -->
   <div class="multi-layout">
-    <!-- CREATE SESSION -->
     <div class="multi-card">
-      <div class="multi-card-title">⚔ CRÉER UNE PARTIE</div>
-      <div class="multi-card-sub">Vous êtes l'hôte. Partagez le code avec vos amis.</div>
-      <button class="cs-btn confirm" id="btn-create-session" onclick="createSession()">Créer la session</button>
-      <div id="host-code-section" style="display:none;margin-top:16px;">
-        <div class="multi-label">Votre code de session (partagez-le):</div>
+      <div class="multi-card-title">⚔ CRÉER</div>
+      <div class="multi-card-sub">Soyez l'hôte. Partagez le code.</div>
+      <button class="cs-btn confirm" id="btn-create-session" onclick="createSessionWithIdentity()">Créer la session</button>
+      <div id="host-code-section" style="display:none;margin-top:14px;">
+        <div class="multi-label">Code de session :</div>
         <div class="multi-code" id="host-code-display">—</div>
-        <button class="multi-copy-btn" onclick="copySessionCode()">📋 Copier le code</button>
-        <div class="multi-label" style="margin-top:12px;">Joueurs connectés:</div>
+        <button class="multi-copy-btn" onclick="copySessionCode()">📋 Copier</button>
+        <div class="multi-label" style="margin-top:10px;">Joueurs connectés :</div>
         <div id="connected-peers-list" class="peer-list">En attente...</div>
-        <button class="cs-btn confirm" id="btn-start-multi" style="margin-top:12px;display:none;" onclick="startMultiGame()">▶ Lancer la partie</button>
+        <button class="cs-btn confirm" id="btn-start-multi" style="margin-top:10px;display:none;" onclick="startMultiGame()">▶ Lancer la partie</button>
       </div>
     </div>
-
-    <!-- JOIN SESSION -->
     <div class="multi-card">
-      <div class="multi-card-title">🌐 REJOINDRE UNE PARTIE</div>
-      <div class="multi-card-sub">Entrez le code donné par l'hôte.</div>
-      <input type="text" id="join-code-input" class="multi-input" placeholder="Collez le code ici..." oninput="this.value=this.value.toUpperCase()">
-      <button class="cs-btn confirm" onclick="joinSession()" style="margin-top:8px;">Rejoindre</button>
+      <div class="multi-card-title">🌐 REJOINDRE</div>
+      <div class="multi-card-sub">Entrez le code de l'hôte.</div>
+      <input type="text" id="join-code-input" class="multi-input" placeholder="CODE…" oninput="this.value=this.value.toUpperCase()">
+      <button class="cs-btn confirm" onclick="joinSessionWithIdentity()" style="margin-top:8px;">Rejoindre</button>
       <div id="join-status" class="join-status"></div>
     </div>
   </div>
 
-  <div class="multi-info">
-    <div class="multi-info-row">🔒 <strong>P2P chiffré</strong> — connexion directe, aucune donnée sur un serveur</div>
-    <div class="multi-info-row">👥 <strong>2–4 joueurs</strong> — chaque joueur contrôle son propre héros</div>
-    <div class="multi-info-row">🌍 <strong>Même réseau ou internet</strong> — fonctionne partout</div>
-  </div>
-
-  <div class="cs-actions" style="margin-top:20px;">
+  <div class="cs-actions" style="margin-top:16px;">
     <button class="cs-btn back" onclick="backToMenuFromMulti()">← Retour</button>
   </div>
 </div>

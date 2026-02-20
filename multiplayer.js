@@ -48,13 +48,102 @@ function showJoinStatus(msg, type) {
 }
 
 function generateName() {
-  return `Joueur-${Math.random().toString(36).slice(2,6).toUpperCase()}`;
+  return 'Joueur-' + Math.random().toString(36).slice(2,6).toUpperCase();
 }
 
 function getMyName() {
-  // Chercher le nom dans les données du joueur local
+  const input = document.getElementById('multi-name-input');
+  if (input && input.value.trim()) return input.value.trim();
   if (window._myPlayerName) return window._myPlayerName;
   return generateName();
+}
+
+// ─── MINI GRILLE DE CLASSES POUR LE PANEL MULTI ──────
+function initMultiClassGrid() {
+  const grid = document.getElementById('multi-class-grid');
+  if (!grid || typeof CLASSES === 'undefined') return;
+
+  const icons = { fracture:'⚔', tisseuse:'🕸', briseur:'🛡', druide:'🌿', mage:'🔥', paladin:'✨', assassin:'🗡' };
+
+  grid.innerHTML = '';
+  for (const [id, cls] of Object.entries(CLASSES)) {
+    const card = document.createElement('div');
+    card.dataset.classId = id;
+    card.style.cssText = 'padding:8px 4px;text-align:center;border:1px solid rgba(155,77,202,0.2);border-radius:4px;cursor:pointer;transition:all 0.15s;background:rgba(20,5,35,0.5);';
+    card.innerHTML = '<div style="font-size:16px;">' + (icons[id]||'\u2694') + '</div><div style="font-family:Cinzel,serif;font-size:8px;color:' + cls.color + ';margin-top:2px;">' + cls.name + '</div>';
+    card.onclick = function() {
+      document.querySelectorAll('#multi-class-grid > div').forEach(function(c) {
+        c.style.background = 'rgba(20,5,35,0.5)';
+        c.style.borderColor = 'rgba(155,77,202,0.2)';
+      });
+      card.style.background = 'rgba(155,77,202,0.25)';
+      card.style.borderColor = cls.color;
+      window._multiSelectedClass = id;
+      const sel = document.getElementById('multi-class-selected');
+      if (sel) sel.textContent = cls.name + ' — ' + cls.role;
+      selectClass(id);
+    };
+    // Pré-selectionner la classe actuelle
+    if (state.selectedClass === id) {
+      card.style.background = 'rgba(155,77,202,0.25)';
+      card.style.borderColor = cls.color;
+      window._multiSelectedClass = id;
+    }
+    grid.appendChild(card);
+  }
+
+  // Pré-remplir le pseudo
+  const nameInput = document.getElementById('multi-name-input');
+  if (nameInput && !nameInput.value) {
+    nameInput.value = window._myPlayerName || generateName();
+  }
+}
+
+function updateMultiPreview() {
+  const input = document.getElementById('multi-name-input');
+  if (input) window._myPlayerName = input.value.trim() || generateName();
+}
+
+function createSessionWithIdentity() {
+  const name = getMyName();
+  window._myPlayerName = name;
+  const classId = window._multiSelectedClass || state.selectedClass || 'fracture';
+  selectClass(classId);
+
+  const btn = document.getElementById('btn-create-session');
+  btn.textContent = 'Connexion...'; btn.disabled = true;
+
+  connectWS((ws) => {
+    wsSend('create', {
+      name: name,
+      classId: classId,
+      x: state.player.gridX, y: state.player.gridY,
+      hp: state.hp, hpMax: state.hpMax,
+    });
+  });
+}
+
+function joinSessionWithIdentity() {
+  const codeInput = document.getElementById('join-code-input');
+  const code = codeInput.value.trim().toUpperCase();
+  if (!code) { showJoinStatus('Entrez un code de session.', 'err'); return; }
+
+  const name = getMyName();
+  window._myPlayerName = name;
+  const classId = window._multiSelectedClass || state.selectedClass || 'fracture';
+  selectClass(classId);
+
+  showJoinStatus('Connexion au serveur...', 'pending');
+
+  connectWS((ws) => {
+    wsSend('join', {
+      code,
+      name: name,
+      classId: classId,
+      x: state.player.gridX, y: state.player.gridY,
+      hp: state.hp, hpMax: state.hpMax,
+    });
+  });
 }
 
 // ─── UI CONFIGURATION SERVEUR ────────────────────────────

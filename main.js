@@ -116,6 +116,7 @@ function showMultiPanel() {
   document.getElementById('multi-panel').classList.add('visible');
   document.getElementById('main-menu').classList.add('hidden');
   initServerConfigUI();
+  if (typeof initMultiClassGrid === 'function') initMultiClassGrid();
 }
 
 function backToMenuFromMulti() {
